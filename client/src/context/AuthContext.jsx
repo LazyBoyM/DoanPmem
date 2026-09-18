@@ -1,8 +1,8 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
 import { jwtDecode } from 'jwt-decode';
 
-const AuthContext = createContext(null);
+import { AuthContext } from './auth-context';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -23,8 +23,8 @@ export const AuthProvider = ({ children }) => {
                         if (response.success) {
                             setUser(response.data);
                         } else {
-                            // If mock db or no endpoint, use decoded token payload
-                            setUser(decoded);
+                            // Do not accept a session whose profile cannot be verified.
+                            logout();
                         }
                     }
                 } catch (error) {
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
+    function logout() {
         localStorage.removeItem('token');
         setUser(null);
     };
@@ -62,5 +62,3 @@ export const AuthProvider = ({ children }) => {
         </AuthContext.Provider>
     );
 };
-
-export const useAuth = () => useContext(AuthContext);

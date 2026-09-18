@@ -28,7 +28,7 @@ const ManageSubjects = () => {
         fetchData();
     }, []);
 
-    const fetchData = async () => {
+    async function fetchData() {
         setLoading(true);
         try {
             const [subRes, deptRes] = await Promise.all([
@@ -65,9 +65,9 @@ const ManageSubjects = () => {
         setFormData({
             subject_code: sub.subject_code,
             subject_name: sub.subject_name,
-            credits: sub.credits || 3,
-            theory_periods: sub.theory_periods || 30,
-            practice_periods: sub.practice_periods || 15,
+            credits: sub.credits ?? 3,
+            theory_periods: sub.theory_periods ?? 30,
+            practice_periods: sub.practice_periods ?? 15,
             department_id: String(sub.department_id || 1),
             prerequisite_id: ''
         });

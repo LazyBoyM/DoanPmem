@@ -1,0 +1,21 @@
+{
+  "name": "eduportal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EduPortal - Hệ thống Quản lý Đào tạo & Đăng ký Học phần",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "node server/src/app.js",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.10.1",
+    "xlsx": "^0.18.5"
+  }
+}

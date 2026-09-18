@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 
 const Sidebar = () => {
     const { user, login, logout } = useAuth();
@@ -121,12 +121,13 @@ const Sidebar = () => {
                     </div>
                     <div>
                         <div className="brand-name">EduPortal</div>
-                        <div className="brand-sub">ĐH Công Nghệ GTVT</div>
+                        <div className="brand-sub">Cổng Quản Lý Đào Tạo</div>
                     </div>
                 </div>
             </div>
 
             {/* Quick Demo Role Switcher */}
+            {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && (
             <div className="sidebar-role-selector">
                 <div className="sidebar-role-label">
                     <i className="bi bi-arrow-repeat text-info"></i> Chuyển đổi vai trò test:
@@ -155,6 +156,8 @@ const Sidebar = () => {
                     </button>
                 </div>
             </div>
+
+            )}
 
             <div className="sidebar-nav-container">
                 <div className="nav-section-title">MENU CHỨC NĂNG</div>

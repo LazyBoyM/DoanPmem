@@ -1,5 +1,5 @@
 /* ==========================================================================
-   EDUPORTAL UTT - PROFESSIONAL ENTERPRISE DESIGN SYSTEM
+   EDUPORTAL - PROFESSIONAL ENTERPRISE DESIGN SYSTEM
    Modern Sidebar Layout, Plus Jakarta Sans, Soft Elevation, Glassmorphism
    ========================================================================== */
 
@@ -800,4 +800,13 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+@media print {
+  .app-sidebar, .sidebar, .app-topbar, .d-print-none, button { display: none !important; }
+  .app-main { margin-left: 0 !important; width: 100% !important; }
+  .app-container, .app-main, .app-content-body, .table-responsive, .table-container-responsive { overflow: visible !important; height: auto !important; }
+  .card { box-shadow: none !important; break-inside: auto; }
+  table { width: 100%; }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
 }

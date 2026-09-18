@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
 
 const ManageSemesters = () => {
+    const { refresh } = useAcademic();
     const [activeTab, setActiveTab] = useState('periods'); // 'periods' | 'semesters' | 'programs'
 
     // Data lists
@@ -41,7 +43,7 @@ const ManageSemesters = () => {
         duration_years: 4.0
     });
 
-    const fetchAllData = async () => {
+    async function fetchAllData() {
         try {
             const [semRes, periodRes, progRes, deptRes] = await Promise.all([
                 axiosClient.get('/admin/semesters'),
@@ -59,6 +61,8 @@ const ManageSemesters = () => {
     };
 
     useEffect(() => {
+        // State updates occur after the HTTP response, not synchronously in this effect.
+        // eslint-disable-next-line react/set-state-in-effect
         fetchAllData();
     }, []);
 
@@ -67,6 +71,7 @@ const ManageSemesters = () => {
         try {
             const res = await axiosClient.put(`/admin/registration-periods/${id}/toggle`);
             if (res.success) {
+                refresh();
                 fetchAllData();
             }
         } catch (err) {
@@ -79,6 +84,7 @@ const ManageSemesters = () => {
         try {
             const res = await axiosClient.put(`/admin/semesters/${id}/active`);
             if (res.success) {
+                refresh();
                 alert('Đã kích hoạt học kỳ hiện hành thành công.');
                 fetchAllData();
             }
@@ -93,6 +99,7 @@ const ManageSemesters = () => {
         try {
             const res = await axiosClient.post('/admin/registration-periods', periodForm);
             if (res.success) {
+                refresh();
                 alert('Tạo đợt đăng ký học phần thành công!');
                 setShowPeriodModal(false);
                 fetchAllData();
@@ -108,6 +115,7 @@ const ManageSemesters = () => {
         try {
             const res = await axiosClient.post('/admin/semesters', semesterForm);
             if (res.success) {
+                refresh();
                 alert('Tạo học kỳ mới thành công!');
                 setShowSemesterModal(false);
                 fetchAllData();
@@ -123,6 +131,7 @@ const ManageSemesters = () => {
         try {
             const res = await axiosClient.post('/admin/programs', programForm);
             if (res.success) {
+                refresh();
                 alert('Tạo chương trình đào tạo thành công!');
                 setShowProgramModal(false);
                 fetchAllData();

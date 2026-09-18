@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
-import axios from 'axios';
+import { downloadFile } from '../../api/download';
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({
@@ -34,7 +34,7 @@ const AdminDashboard = () => {
                 }
 
                 if (reportRes.success) {
-                    setAcademicStats(reportRes.stats);
+                    setAcademicStats(reportRes.data);
                 }
             } catch (err) {
                 console.error('Lỗi lấy dữ liệu admin dashboard:', err);
@@ -47,17 +47,7 @@ const AdminDashboard = () => {
     const handleExportExcel = async () => {
         setDownloading(true);
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.get('http://localhost:5000/api/reports/export-students-excel', {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'Bao_cao_danh_sach_sinh_vien.xlsx');
-            document.body.appendChild(link);
-            link.click();
+            await downloadFile('/reports/export-students-excel', 'Bao_cao_danh_sach_sinh_vien.xlsx');
         } catch (err) {
             console.error('Lỗi khi xuất file Excel:', err);
             alert('Lỗi khi xuất file Excel. Vui lòng kiểm tra lại server.');
@@ -67,11 +57,11 @@ const AdminDashboard = () => {
     };
 
     const renderGradeDistribution = () => {
-        if (!academicStats || !academicStats.grade_distribution) {
+        if (!academicStats || !academicStats.gradeDistribution) {
             return <div className="text-muted small py-3">Đang cập nhật dữ liệu đánh giá...</div>;
         }
 
-        const dist = academicStats.grade_distribution;
+        const dist = academicStats.gradeDistribution;
         const totalPass = (dist.A || 0) + (dist['B+'] || 0) + (dist.B || 0) + (dist['C+'] || 0) + (dist.C || 0) + (dist['D+'] || 0) + (dist.D || 0);
         const total = totalPass + (dist.F || 0);
         const passRate = total > 0 ? ((totalPass / total) * 100).toFixed(1) : '100';
@@ -116,8 +106,8 @@ const AdminDashboard = () => {
                         <div key={idx} className="col-sm-6">
                             <div className="d-flex align-items-center justify-content-between p-2 rounded-3 border bg-light">
                                 <div className="d-flex align-items-center gap-2">
-                                    <span 
-                                        className="rounded-circle d-inline-block" 
+                                    <span
+                                        className="rounded-circle d-inline-block"
                                         style={{ width: '10px', height: '10px', backgroundColor: item.color }}
                                     />
                                     <span className="small fw-semibold text-dark">{item.grade}</span>
@@ -146,6 +136,26 @@ const AdminDashboard = () => {
 
     return (
         <div className="admin-pane">
+            {/* Page Header */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div>
+                    <h4 className="fw-bold mb-1">
+                        <i className="bi bi-speedometer2 text-primary me-2"></i>Tổng Quan & Thống Kê Đào Tạo
+                    </h4>
+                    <p className="text-muted small mb-0">
+                        Hệ thống chỉ số KPI toàn trường, tiến độ giảng dạy và phân bổ phổ điểm sinh viên
+                    </p>
+                </div>
+                <button
+                    className="btn btn-success btn-sm shadow-sm"
+                    onClick={handleExportExcel}
+                    disabled={downloading}
+                >
+                    <i className="bi bi-file-earmark-excel me-1"></i>
+                    {downloading ? 'Đang xuất file...' : 'Xuất Báo Cáo Sinh Viên'}
+                </button>
+            </div>
+
             {/* KPI Metric Cards */}
             <div className="row g-3 mb-4">
                 <div className="col-sm-6 col-xl-3">
@@ -241,7 +251,7 @@ const AdminDashboard = () => {
                         </Link>
                     </div>
                     <div className="col-md-3">
-                        <button 
+                        <button
                             className="btn btn-outline-secondary w-100 py-3 text-start d-flex align-items-center gap-3 rounded-3 shadow-xs"
                             onClick={handleExportExcel}
                             disabled={downloading}
@@ -273,7 +283,7 @@ const AdminDashboard = () => {
                         <p className="text-muted small mb-4">
                             Tỷ lệ phân bố phổ điểm học tập của sinh viên theo chuẩn quy chế đào tạo
                         </p>
-                        
+
                         {renderGradeDistribution()}
                     </div>
                 </div>
@@ -286,9 +296,9 @@ const AdminDashboard = () => {
                         <p className="text-muted small mb-4">
                             Trích xuất báo cáo tổng hợp phục vụ thanh tra, kiểm định chất lượng và báo cáo định kỳ
                         </p>
-                        
+
                         <div className="d-grid gap-3">
-                            <button 
+                            <button
                                 className="btn btn-success py-3 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm"
                                 onClick={handleExportExcel}
                                 disabled={downloading}
@@ -304,7 +314,7 @@ const AdminDashboard = () => {
                                 <ul className="mb-0 ps-3">
                                     <li>Mã sinh viên, Họ và tên, Ngày sinh, Giới tính</li>
                                     <li>Lớp sinh hoạt, Khóa học, Chuyên ngành đào tạo</li>
-                                    <li>Thông tin liên lạc: Số điện thoại, Email UTT</li>
+                                    <li>Thông tin liên lạc: Số điện thoại, Email liên hệ</li>
                                     <li>Trạng thái tài khoản người dùng</li>
                                 </ul>
                             </div>

@@ -1,52 +1,43 @@
 import React, { useEffect, useState } from 'react';
+import { useAcademic } from '../../context/academic-context';
+import SemesterSelect from '../../components/SemesterSelect';
 import axiosClient from '../../api/axiosClient';
 
 const StudentGrades = () => {
-    const [enrollments, setEnrollments] = useState([]);
-    
+    const { semesterId } = useAcademic();
+    const [report, setReport] = useState(null);
+    const [error, setError] = useState('');
     useEffect(() => {
-        const fetchEnrollments = async () => {
-            try {
-                const res = await axiosClient.get('/registration/my-enrollments');
-                if (res.success) {
-                    setEnrollments(res.data);
-                }
-            } catch (err) {
-                console.error("Lỗi tải điểm:", err);
-            }
-        };
-        fetchEnrollments();
-    }, []);
-
-    const calculateGpa = () => {
-        let totalCredits = 0;
-        let sum10 = 0;
-        let sum4 = 0;
-        let passedCredits = 0;
-
-        enrollments.forEach(e => {
-            if (e.grade && e.grade.total_score_10 !== null) {
-                const c = e.credits || 3;
-                totalCredits += c;
-                sum10 += e.grade.total_score_10 * c;
-                sum4 += (e.grade.total_score_4 !== null ? e.grade.total_score_4 : 0) * c;
-                if (e.grade.total_score_10 >= 4.0) passedCredits += c;
-            }
-        });
-
-        return {
-            gpa10: totalCredits > 0 ? (sum10 / totalCredits).toFixed(2) : '0.00',
-            gpa4: totalCredits > 0 ? (sum4 / totalCredits).toFixed(2) : '0.00',
-            totalCredits,
-            passedCredits
-        };
-    };
-
-    const gpa = calculateGpa();
-    const progressPercent = Math.min((gpa.passedCredits / 150) * 100, 100).toFixed(1);
+        const controller = new AbortController();
+        if (semesterId) axiosClient.get('/registration/grades', { params: { semester_id: semesterId }, signal: controller.signal })
+            .then(res => { setReport({ ...res, semesterId }); setError(''); })
+            .catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || 'Không tải được bảng điểm.'); });
+        return () => controller.abort();
+    }, [semesterId]);
+    const current = report?.semesterId === semesterId ? report : null;
+    const enrollments = current?.data || [];
+    const gpa = current?.summary || { gpa4: '—', gpa10: '—' };
+    const cumulative = current?.cumulative || { passedCredits: 0, gpa4: '—' };
+    const requiredCredits = current?.required_credits || 0;
+    const progressPercent = requiredCredits ? Math.min(cumulative.passedCredits / requiredCredits * 100, 100).toFixed(1) : 0;
 
     return (
         <div className="student-pane">
+            <SemesterSelect />
+            {error && <div className="alert alert-danger" role="alert">{error}</div>}
+            <p className="text-muted">GPA tích lũy: {cumulative.gpa4}. {current?.policy}</p>
+            {/* Page Header */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div>
+                    <h4 className="fw-bold mb-1">
+                        <i className="bi bi-award text-primary me-2"></i>Kết Quả Học Tập & Bảng Điểm Tích Lũy
+                    </h4>
+                    <p className="text-muted small mb-0">
+                        Bảng điểm chi tiết từng môn, tiến độ tích lũy tín chỉ và điểm trung bình GPA/CPA
+                    </p>
+                </div>
+            </div>
+
             <div className="row g-3 mb-4">
                 <div className="col-md-3">
                     <div className="kpi-card kpi-card-blue">
@@ -64,8 +55,8 @@ const StudentGrades = () => {
                             <span className="kpi-title">Tín Chỉ Tích Lũy</span>
                             <i className="bi bi-journal-bookmark kpi-icon"></i>
                         </div>
-                        <div className="kpi-value">{gpa.passedCredits}</div>
-                        <small className="opacity-75">/ 150 TC Yêu Cầu</small>
+                        <div className="kpi-value">{cumulative.passedCredits}</div>
+                        <small className="opacity-75">/ {requiredCredits || "—"} TC Yêu Cầu</small>
                     </div>
                 </div>
                 <div className="col-md-6">
@@ -79,7 +70,7 @@ const StudentGrades = () => {
                         </div>
                         <div className="d-flex justify-content-between mt-2 small text-muted">
                             <span>Bắt đầu (0 TC)</span>
-                            <span>Tốt nghiệp (150 TC)</span>
+                            <span>Tốt nghiệp ({requiredCredits || "—"} TC)</span>
                         </div>
                     </div>
                 </div>
@@ -88,7 +79,7 @@ const StudentGrades = () => {
             <div className="card shadow-sm border-0">
                 <div className="card-header-styled">
                     <h5><i className="bi bi-table text-primary"></i> Bảng Điểm Chi Tiết</h5>
-                    <button className="btn btn-sm btn-outline-light"><i className="bi bi-download"></i> Tải Bảng Điểm PDF</button>
+                    <button className="btn btn-sm btn-outline-primary d-print-none" onClick={() => window.print()}><i className="bi bi-printer"></i> In / Lưu PDF</button>
                 </div>
                 <div className="p-0 table-container-responsive">
                     <table className="table-modern text-center mb-0">

@@ -4,8 +4,11 @@
   "description": "Backend API for Training Management and Course Registration System",
   "main": "src/app.js",
   "scripts": {
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test test/*.test.js",
     "start": "node src/app.js",
-    "dev": "node --watch src/app.js"
+    "dev": "node --watch src/app.js",
+    "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

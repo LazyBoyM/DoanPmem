@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
-import axios from 'axios';
+import { downloadFile } from '../../api/download';
 
 const ManageStudents = () => {
     const [students, setStudents] = useState([]);
@@ -33,7 +33,7 @@ const ManageStudents = () => {
         fetchData();
     }, []);
 
-    const fetchData = async () => {
+    async function fetchData() {
         setLoading(true);
         try {
             const [studentsRes, programsRes] = await Promise.all([
@@ -154,18 +154,7 @@ const ManageStudents = () => {
 
     const handleExportExcel = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5000/api/reports/export-students-excel', {
-                headers: { Authorization: `Bearer ${token}` },
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'Danh_sach_sinh_vien.xlsx');
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            await downloadFile('/reports/export-students-excel', 'Danh_sach_sinh_vien.xlsx');
         } catch (err) {
             console.error('Lỗi tải file Excel:', err);
             alert('Không thể tải file Excel. Vui lòng kiểm tra lại server.');

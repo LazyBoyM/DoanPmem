@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/auth-context';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 
@@ -38,7 +39,7 @@ const AppRoutes = () => {
             <Routes>
                 {/* Public Route */}
                 <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-                
+
                 {/* Protected Routes wrapped in MainLayout */}
                 <Route element={<MainLayout />}>
                     {/* Admin Routes */}

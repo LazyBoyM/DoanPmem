@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useAcademic } from '../context/academic-context';
 
 const Topbar = () => {
-    const location = useLocation();
+    const { semester, period, loading, error } = useAcademic();
     const [currentTime, setCurrentTime] = useState('');
 
     useEffect(() => {
@@ -17,36 +17,15 @@ const Topbar = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Map route path to title
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path.includes('/admin/users')) return { title: 'Quản Lý Tài Khoản', icon: 'bi-shield-lock', breadcrumb: 'Quản Trị Viên / Quản Lý Tài Khoản' };
-        if (path.includes('/admin/students')) return { title: 'Hồ Sơ Quản Lý Sinh Viên', icon: 'bi-backpack', breadcrumb: 'Quản Trị Viên / Hồ Sơ Quản Lý Sinh Viên' };
-        if (path.includes('/admin/lecturers')) return { title: 'Hồ Sơ Quản Lý Giảng Viên', icon: 'bi-person-workspace', breadcrumb: 'Quản Trị Viên / Hồ Sơ Quản Lý Giảng Viên' };
-        if (path.includes('/admin/subjects')) return { title: 'Danh Mục Môn Học & Học Phần', icon: 'bi-journal-bookmark', breadcrumb: 'Quản Trị Viên / Danh Mục Môn Học & Học Phần' };
-        if (path.includes('/admin/semesters')) return { title: 'Năm Học, Học Kỳ & Đợt ĐKHP', icon: 'bi-calendar2-range', breadcrumb: 'Quản Trị Viên / Cấu Hình Đào Tạo' };
-        if (path.includes('/admin/classes')) return { title: 'Quản Trị Lớp Học Phần', icon: 'bi-collection-play', breadcrumb: 'Quản Trị Viên / Quản Trị Lớp Học Phần' };
-        if (path.includes('/admin')) return { title: 'Tổng Quan & Thống Kê Đào Tạo', icon: 'bi-speedometer2', breadcrumb: 'Quản Trị Viên / Dashboard Chỉ Số KPI' };
-        
-        if (path.includes('/lecturer/timetable')) return { title: 'Thời Khóa Biểu Giảng Dạy Trong Tuần', icon: 'bi-calendar-event', breadcrumb: 'Giảng Viên / Thời Khóa Biểu Giảng Dạy Trong Tuần' };
-        if (path.includes('/lecturer/grades') || path.includes('/lecturer')) return { title: 'Quản Lý Lớp & Nhập Kết Quả Học Tập', icon: 'bi-journal-check', breadcrumb: 'Giảng Viên / Quản Lý Lớp & Nhập Kết Quả Học Tập' };
-
-        if (path.includes('/student/timetable')) return { title: 'Thời Khóa Biểu Học Tập Tuần', icon: 'bi-calendar3-week', breadcrumb: 'Sinh Viên / Thời Khóa Biểu Học Tập Tuần' };
-        if (path.includes('/student/grades')) return { title: 'Kết Quả Học Tập', icon: 'bi-award', breadcrumb: 'Sinh Viên / Kết Quả Học Tập' };
-        if (path.includes('/student/registration') || path.includes('/student')) return { title: 'Cổng Đăng Ký Học Phần', icon: 'bi-card-checklist', breadcrumb: 'Sinh Viên / Đăng Ký Tín Chỉ' };
-        
-        return { title: 'EduPortal UTT', icon: 'bi-mortarboard-fill', breadcrumb: 'Hệ Thống Quản Lý Đào Tạo' };
-    };
-
-    const { title, icon, breadcrumb } = getPageTitle();
-
     return (
         <header className="app-topbar">
-            <div className="page-title-area">
-                <h1 className="page-main-title">
-                    <i className={`bi ${icon} text-primary me-2`}></i> {title}
-                </h1>
-                <span className="page-breadcrumb">{breadcrumb}</span>
+            <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-bold" style={{ fontSize: '0.8rem', letterSpacing: '0.02em' }}>
+                    <i className="bi bi-mortarboard-fill me-1.5"></i> EDUPORTAL
+                </span>
+                <span className="text-secondary small fw-medium d-none d-md-inline">
+                    Hệ Thống Đào Tạo & Đăng Ký Tín Chỉ
+                </span>
             </div>
 
             <div className="topbar-right-controls">
@@ -57,11 +36,11 @@ const Topbar = () => {
                 )}
                 <div className="academic-semester-pill">
                     <i className="bi bi-calendar3"></i>
-                    <span>HK1 (2026 - 2027)</span>
+                    <span>{semester?.semester_name || 'Chưa chọn học kỳ'}</span>
                 </div>
-                <div className="d-flex align-items-center gap-2 px-3 py-1 bg-success-subtle border border-success-subtle rounded-pill">
-                    <span className="pulse-dot"></span>
-                    <span className="text-success fw-bold small">Cổng ĐKHP Mở</span>
+                <div className={`d-flex align-items-center gap-2 px-3 py-1 border rounded-pill ${period ? 'bg-success-subtle' : 'bg-light'}`}>
+                    {period && <span className="pulse-dot"></span>}
+                    <span className={`fw-bold small ${period ? 'text-success' : 'text-secondary'}`}>{loading ? 'Đang tải...' : error ? 'Không rõ trạng thái ĐKHP' : period ? 'Cổng ĐKHP Mở' : 'Cổng ĐKHP Đóng'}</span>
                 </div>
                 <button
                     className="btn btn-outline-secondary btn-sm"

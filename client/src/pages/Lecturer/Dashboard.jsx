@@ -1,61 +1,50 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAcademic } from '../../context/academic-context';
+import SemesterSelect from '../../components/SemesterSelect';
 import axiosClient from '../../api/axiosClient';
+import { downloadFile } from '../../api/download';
 
 const LecturerDashboard = () => {
-    const [classes, setClasses] = useState([]);
+    const { semesterId } = useAcademic();
+    const [classResult, setClassResult] = useState({ semesterId: '', data: [] });
     const [selectedClass, setSelectedClass] = useState('');
-    const [students, setStudents] = useState([]);
-
+    const [view, setView] = useState({ classId: '', students: [], course: null });
+    const [error, setError] = useState('');
+    const classes = classResult.semesterId === semesterId ? classResult.data : [];
+    const validSelection = classes.some(c => String(c.id) === String(selectedClass));
+    const students = validSelection && view.classId === String(selectedClass) ? view.students : [];
+    const course = validSelection && view.classId === String(selectedClass) ? view.course : null;
     useEffect(() => {
-        const fetchClasses = async () => {
-            try {
-                const res = await axiosClient.get('/lecturer/my-classes');
-                if (res.success) {
-                    setClasses(res.data);
-                    if (res.data.length > 0) {
-                        setSelectedClass(res.data[0].id);
-                    }
-                }
-            } catch (err) {
-                console.error("Lỗi khi tải danh sách lớp", err);
-            }
-        };
-        fetchClasses();
-    }, []);
-
-    useEffect(() => {
-        if (selectedClass) {
-            fetchStudents(selectedClass);
-        }
-    }, [selectedClass]);
-
-    const fetchStudents = async (classId) => {
+        const controller = new AbortController();
+        if (semesterId) axiosClient.get('/lecturer/my-classes', { params: { semester_id: semesterId }, signal: controller.signal })
+            .then(res => { setClassResult({ semesterId, data: res.data }); setSelectedClass(String(res.data[0]?.id || '')); setError(''); })
+            .catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || 'Không tải được danh sách lớp.'); });
+        return () => controller.abort();
+    }, [semesterId]);
+    const fetchStudents = useCallback(async (classId, signal) => {
         try {
-            const res = await axiosClient.get(`/lecturer/class-students/${classId}`);
-            if (res.success) {
-                setStudents(res.data);
-            }
-        } catch (err) {
-            console.error("Lỗi tải danh sách sinh viên", err);
-        }
-    };
-
+            const res = await axiosClient.get(`/lecturer/class-students/${classId}`, { signal });
+            if (!signal?.aborted) { setView({ classId: String(classId), students: res.data, course: res.course_class }); setError(''); }
+        } catch (err) { if (!signal?.aborted) setError(err.response?.data?.message || 'Không tải được sinh viên.'); }
+    }, []);
+    useEffect(() => {
+        const controller = new AbortController();
+        // State updates occur after the HTTP response, not synchronously in this effect.
+        // eslint-disable-next-line react/set-state-in-effect
+        if (validSelection) fetchStudents(selectedClass, controller.signal);
+        return () => controller.abort();
+    }, [selectedClass, validSelection, fetchStudents]);
     const handleGradeChange = (enrollmentId, field, value) => {
-        setStudents(prev => prev.map(s => {
-            if (s.enrollment_id === enrollmentId) {
-                return { ...s, [field]: value };
-            }
-            return s;
-        }));
+        setView(prev => ({ ...prev, students: prev.students.map(s => s.enrollment_id === enrollmentId ? { ...s, [field]: value } : s) }));
     };
 
     const handleSaveGrade = async (student) => {
         try {
             const res = await axiosClient.post('/lecturer/update-grades', {
                 enrollment_id: student.enrollment_id,
-                attendance_score: student.attendance_score !== '' ? parseFloat(student.attendance_score) : null,
-                midterm_score: student.midterm_score !== '' ? parseFloat(student.midterm_score) : null,
-                final_score: student.final_score !== '' ? parseFloat(student.final_score) : null
+                attendance_score: student.attendance_score === '' ? null : student.attendance_score,
+                midterm_score: student.midterm_score === '' ? null : student.midterm_score,
+                final_score: student.final_score === '' ? null : student.final_score
             });
 
             if (res.success) {
@@ -67,11 +56,20 @@ const LecturerDashboard = () => {
         }
     };
 
+    const handleExport = async () => {
+        if (!selectedClass) return;
+        try {
+            await downloadFile(`/reports/export-class-excel/${selectedClass}`, `Danh_sach_lop_${selectedClass}.xlsx`);
+        } catch {
+            alert('Không thể xuất danh sách lớp.');
+        }
+    };
+
     const handleToggleLock = async () => {
         if (!selectedClass) return;
-        const isLocked = students.some(s => s.is_locked === 1);
+        const isLocked = Boolean(course?.grades_locked) || students.some(s => s.is_locked === 1);
         const willLock = !isLocked;
-        
+
         try {
             const res = await axiosClient.put(`/lecturer/lock-grades/${selectedClass}`, { is_locked: willLock ? 1 : 0 });
             if (res.success) {
@@ -83,10 +81,12 @@ const LecturerDashboard = () => {
         }
     };
 
-    const isLocked = students.length > 0 && students.some(s => s.is_locked === 1);
+    const isLocked = Boolean(course?.grades_locked) || students.some(s => s.is_locked === 1);
 
     return (
         <div className="lecturer-pane">
+            <SemesterSelect />
+            {error && <div className="alert alert-danger" role="alert">{error}</div>}
             <div className="card shadow-sm border-0 p-4 mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                     <div>
@@ -94,11 +94,11 @@ const LecturerDashboard = () => {
                         <p className="text-muted small mb-0">Hệ thống tự động tính điểm Hệ 10, Hệ 4 và Điểm chữ tức thời theo công thức đào tạo tín chỉ</p>
                     </div>
                     <div className="d-flex flex-wrap gap-2">
-                        <button className={`btn ${isLocked ? 'btn-outline-warning' : 'btn-outline-danger'}`} onClick={handleToggleLock}>
-                            <i className={`bi ${isLocked ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i> 
+                        <button className={`btn ${isLocked ? 'btn-outline-warning' : 'btn-outline-danger'}`} disabled={!course} onClick={handleToggleLock}>
+                            <i className={`bi ${isLocked ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i>
                             {isLocked ? 'Mở Khóa Bảng Điểm' : 'Khóa Bảng Điểm'}
                         </button>
-                        <button className="btn btn-success" onClick={() => window.open(`http://localhost:5000/api/reports/export-class-excel/${selectedClass}?token=${localStorage.getItem('token')}`, '_blank')}>
+                        <button className="btn btn-success" disabled={!course} onClick={handleExport}>
                             <i className="bi bi-file-earmark-excel me-1"></i> Xuất File Excel Lớp
                         </button>
                     </div>
@@ -107,8 +107,8 @@ const LecturerDashboard = () => {
                 <div className="row g-3 mb-4">
                     <div className="col-md-6">
                         <label className="form-label fw-bold small text-secondary">CHỌN LỚP HỌC PHẦN PHỤ TRÁCH:</label>
-                        <select 
-                            className="form-select form-select-lg" 
+                        <select
+                            className="form-select form-select-lg"
                             value={selectedClass}
                             onChange={(e) => setSelectedClass(e.target.value)}
                         >
@@ -144,28 +144,28 @@ const LecturerDashboard = () => {
                                     <td className="text-start fw-semibold text-dark">{s.full_name}</td>
                                     <td>{s.class_name}</td>
                                     <td>
-                                        <input 
-                                            type="number" step="0.1" min="0" max="10" 
+                                        <input
+                                            type="number" step="0.1" min="0" max="10"
                                             disabled={isLocked}
-                                            className="form-control form-control-sm grade-input mx-auto" 
+                                            className="form-control form-control-sm grade-input mx-auto"
                                             value={s.attendance_score !== null ? s.attendance_score : ''}
                                             onChange={(e) => handleGradeChange(s.enrollment_id, 'attendance_score', e.target.value)}
                                         />
                                     </td>
                                     <td>
-                                        <input 
-                                            type="number" step="0.1" min="0" max="10" 
+                                        <input
+                                            type="number" step="0.1" min="0" max="10"
                                             disabled={isLocked}
-                                            className="form-control form-control-sm grade-input mx-auto" 
+                                            className="form-control form-control-sm grade-input mx-auto"
                                             value={s.midterm_score !== null ? s.midterm_score : ''}
                                             onChange={(e) => handleGradeChange(s.enrollment_id, 'midterm_score', e.target.value)}
                                         />
                                     </td>
                                     <td>
-                                        <input 
-                                            type="number" step="0.1" min="0" max="10" 
+                                        <input
+                                            type="number" step="0.1" min="0" max="10"
                                             disabled={isLocked}
-                                            className="form-control form-control-sm grade-input mx-auto" 
+                                            className="form-control form-control-sm grade-input mx-auto"
                                             value={s.final_score !== null ? s.final_score : ''}
                                             onChange={(e) => handleGradeChange(s.enrollment_id, 'final_score', e.target.value)}
                                         />
@@ -174,7 +174,7 @@ const LecturerDashboard = () => {
                                     <td className="fw-bold">{s.total_score_4 !== null ? s.total_score_4 : '-'}</td>
                                     <td><span className={`badge ${s.letter_grade === 'F' ? 'bg-danger' : 'bg-success'}`}>{s.letter_grade || '-'}</span></td>
                                     <td>
-                                        <button 
+                                        <button
                                             className={`btn btn-primary btn-sm px-3 ${isLocked ? 'disabled' : ''}`}
                                             onClick={() => handleSaveGrade(s)}
                                         >

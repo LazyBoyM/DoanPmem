@@ -2,30 +2,33 @@ const mysql = require('mysql2/promise');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
+const { databaseConfig } = require('./database');
+const { validateRuntime } = require('./runtime');
+let initialization = null;
 let pool = null;
 let isConnected = false;
 
 // Mock in-memory database fallback
 const mockDb = {
     users: [
-        { id: 1, username: 'admin', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'admin@utt.edu.vn', role: 'ADMIN', status: 1 },
-        { id: 2, username: 'gv_thuan', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'thuanpt@utt.edu.vn', role: 'LECTURER', status: 1 },
-        { id: 3, username: 'gv_nam', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'namnv@utt.edu.vn', role: 'LECTURER', status: 1 },
-        { id: 4, username: '74dctt25001', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'hieplv@sinhvien.utt.edu.vn', role: 'STUDENT', status: 1 },
-        { id: 5, username: '74dctt25002', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'huybd@sinhvien.utt.edu.vn', role: 'STUDENT', status: 1 },
-        { id: 6, username: '74dctt25003', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'minhnla@sinhvien.utt.edu.vn', role: 'STUDENT', status: 1 },
-        { id: 7, username: '74dctt25004', password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', email: 'vienvn@sinhvien.utt.edu.vn', role: 'STUDENT', status: 1 }
+        { id: 1, username: 'admin', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'admin@edu.vn', role: 'ADMIN', status: 1 },
+        { id: 2, username: 'gv_thuan', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'thuanpt@edu.vn', role: 'LECTURER', status: 1 },
+        { id: 3, username: 'gv_nam', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'namnv@edu.vn', role: 'LECTURER', status: 1 },
+        { id: 4, username: '74dctt25001', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'hieplv@sinhvien.edu.vn', role: 'STUDENT', status: 1 },
+        { id: 5, username: '74dctt25002', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'huybd@sinhvien.edu.vn', role: 'STUDENT', status: 1 },
+        { id: 6, username: '74dctt25003', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'minhnla@sinhvien.edu.vn', role: 'STUDENT', status: 1 },
+        { id: 7, username: '74dctt25004', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'vienvn@sinhvien.edu.vn', role: 'STUDENT', status: 1 }
     ],
     departments: [
-        { id: 1, department_code: 'CNTT', department_name: 'Khoa Công nghệ Thông tin', phone: '02438544264', email: 'cntt@utt.edu.vn' },
-        { id: 2, department_code: 'KTXD', department_name: 'Khoa Công trình', phone: '02438544265', email: 'ktxd@utt.edu.vn' }
+        { id: 1, department_code: 'CNTT', department_name: 'Khoa Công nghệ Thông tin', phone: '02438544264', email: 'cntt@edu.vn' },
+        { id: 2, department_code: 'KTXD', department_name: 'Khoa Công trình', phone: '02438544265', email: 'ktxd@edu.vn' }
     ],
     programs: [
         { id: 1, program_code: '7480201', program_name: 'Công nghệ Thông tin', department_id: 1, total_credits: 135, duration_years: 4.0 }
     ],
     lecturers: [
-        { id: 1, user_id: 2, lecturer_code: 'GV001', full_name: 'ThS. Phạm Thị Thuận', degree: 'Thạc sĩ', department_id: 1, phone: '0912345678', email: 'thuanpt@utt.edu.vn' },
-        { id: 2, user_id: 3, lecturer_code: 'GV002', full_name: 'TS. Nguyễn Văn Nam', degree: 'Tiến sĩ', department_id: 1, phone: '0987654321', email: 'namnv@utt.edu.vn' }
+        { id: 1, user_id: 2, lecturer_code: 'GV001', full_name: 'ThS. Phạm Thị Thuận', degree: 'Thạc sĩ', department_id: 1, phone: '0912345678', email: 'thuanpt@edu.vn' },
+        { id: 2, user_id: 3, lecturer_code: 'GV002', full_name: 'TS. Nguyễn Văn Nam', degree: 'Tiến sĩ', department_id: 1, phone: '0987654321', email: 'namnv@edu.vn' }
     ],
     students: [
         { id: 1, user_id: 4, student_code: '74DCTT25001', full_name: 'Lê Văn Hiệp', gender: 'Nam', birth_date: '2004-05-12', phone: '0911000001', program_id: 1, academic_year: 'K74', class_name: '2DCTT745', program_name: 'Công nghệ Thông tin' },
@@ -78,32 +81,29 @@ const mockDb = {
     ]
 };
 
-async function initDb() {
+async function connectDatabase() {
+    validateRuntime();
+    if (process.env.DB_MODE === 'mock') { isConnected = false; return; }
+    // Configuration errors must never silently select the demo database.
+    const candidate = mysql.createPool(databaseConfig());
     try {
-        pool = mysql.createPool({
-            host: process.env.DB_HOST || 'localhost',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || 'training_management',
-            port: parseInt(process.env.DB_PORT || '3306', 10),
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0
-        });
-
-        const conn = await pool.getConnection();
+        const conn = await candidate.getConnection();
         conn.release();
+        pool = candidate;
         isConnected = true;
-        console.log('✅ Connected to MySQL database successfully.');
-    } catch (err) {
-        console.warn('⚠️  MySQL connection failed (' + err.message + ').');
-        if (process.env.USE_MOCK_IF_NO_DB !== 'false') {
-            console.log('💡 Running in Mock In-Memory Database Mode for demo/testing.');
-            isConnected = false;
-        } else {
-            throw err;
-        }
+        console.log('Connected to MySQL database.');
+    } catch (error) {
+        await candidate.end().catch(() => {});
+        isConnected = false;
+        if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && process.env.DB_MODE !== 'mysql' && process.env.USE_MOCK_IF_NO_DB !== 'false') {
+            console.warn('MySQL unavailable; using local demo database.');
+        } else throw error;
     }
+}
+async function initDb() {
+    if (pool && isConnected) return;
+    if (!initialization) initialization = connectDatabase().finally(() => { initialization = null; });
+    return initialization;
 }
 
 module.exports = {

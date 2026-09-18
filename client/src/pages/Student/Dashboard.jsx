@@ -1,78 +1,80 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axiosClient from '../../api/axiosClient';
+import { useAcademic } from '../../context/academic-context';
+import SemesterSelect from '../../components/SemesterSelect';
+import ClassSchedule from '../../components/ClassSchedule';
 import { useNavigate } from 'react-router-dom';
 
 const StudentRegistration = () => {
-    const [openClasses, setOpenClasses] = useState([]);
-    const [filteredClasses, setFilteredClasses] = useState([]);
-    const [myEnrollments, setMyEnrollments] = useState([]);
+    const { semesterId, period, refresh } = useAcademic();
+    const [result, setResult] = useState({ semesterId: '', classes: [], enrollments: [] });
     const [searchTerm, setSearchTerm] = useState('');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
     const navigate = useNavigate();
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async (signal) => {
+        if (!semesterId) return;
         try {
             const [classesRes, enrollmentsRes] = await Promise.all([
-                axiosClient.get('/registration/open-classes'),
-                axiosClient.get('/registration/my-enrollments')
+                axiosClient.get('/registration/open-classes', { params: { semester_id: semesterId }, signal }),
+                axiosClient.get('/registration/my-enrollments', { params: { semester_id: semesterId }, signal })
             ]);
-            
-            if (classesRes.success) {
-                setOpenClasses(classesRes.data);
-                setFilteredClasses(classesRes.data);
+            if (!signal?.aborted) {
+                setResult({ semesterId, classes: classesRes.data, enrollments: enrollmentsRes.data });
+                setError('');
             }
-            if (enrollmentsRes.success) {
-                setMyEnrollments(enrollmentsRes.data);
-            }
-        } catch (err) {
-            console.error("Lỗi khi tải dữ liệu đăng ký:", err);
-        }
-    };
-
-    const handleSearch = (e) => {
-        const term = e.target.value.toLowerCase();
-        setSearchTerm(term);
-        const filtered = openClasses.filter(c => 
-            c.class_code.toLowerCase().includes(term) ||
-            c.subject_name.toLowerCase().includes(term) ||
-            (c.lecturer_name && c.lecturer_name.toLowerCase().includes(term))
-        );
-        setFilteredClasses(filtered);
-    };
-
-    const handleEnroll = async (classId) => {
+        } catch (err) { if (!signal?.aborted) setError(err.response?.data?.message || 'Không tải được dữ liệu đăng ký.'); }
+    }, [semesterId]);
+    useEffect(() => {
+        const controller = new AbortController();
+        // State updates occur after the HTTP response, not synchronously in this effect.
+        // eslint-disable-next-line react/set-state-in-effect
+        fetchData(controller.signal);
+        return () => controller.abort();
+    }, [fetchData]);
+    const openClasses = result.semesterId === semesterId ? result.classes : [];
+    const myEnrollments = result.semesterId === semesterId ? result.enrollments : [];
+    const filteredClasses = openClasses.filter(c => [c.class_code, c.subject_name, c.lecturer_name].some(value => (value || '').toLowerCase().includes(searchTerm.toLowerCase())));
+    const handleSearch = e => setSearchTerm(e.target.value);
+    const handleEnroll = async classId => {
+        setBusy(true);
         try {
-            const res = await axiosClient.post('/registration/enroll', { class_id: classId });
-            if (res.success) {
-                alert('Đăng ký học phần thành công!');
-                fetchData();
-            }
-        } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi đăng ký học phần');
-        }
+            await axiosClient.post('/registration/enroll', { course_class_id: classId });
+            await fetchData();
+        } catch (err) { alert(err.response?.data?.message || 'Lỗi đăng ký học phần'); }
+        finally { setBusy(false); refresh(); }
     };
-
-    const handleCancelEnrollment = async (enrollmentId) => {
-        if (!window.confirm('Bạn có chắc chắn muốn hủy đăng ký lớp học phần này?')) return;
+    const handleCancelEnrollment = async enrollmentId => {
+        if (!window.confirm('Hủy đăng ký lớp học phần này?')) return;
+        setBusy(true);
         try {
-            const res = await axiosClient.post(`/registration/cancel`, { enrollment_id: enrollmentId });
-            if (res.success) {
-                alert('Đã hủy đăng ký thành công.');
-                fetchData();
-            }
-        } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi hủy đăng ký');
-        }
+            await axiosClient.post('/registration/cancel', { enrollment_id: enrollmentId });
+            await fetchData();
+        } catch (err) { alert(err.response?.data?.message || 'Lỗi hủy đăng ký'); }
+        finally { setBusy(false); refresh(); }
     };
-
-    const totalCredits = myEnrollments.reduce((sum, item) => sum + item.credits, 0);
-    const progressPercent = Math.min((totalCredits / 24) * 100, 100);
+    const totalCredits = myEnrollments.reduce((sum, item) => sum + Number(item.credits || 0), 0);
+    const minCredits = period?.min_credits ?? 0;
+    const maxCredits = period?.max_credits ?? 0;
+    const progressPercent = maxCredits ? Math.min(totalCredits / maxCredits * 100, 100) : 0;
 
     return (
         <div className="student-pane">
+            <SemesterSelect />
+            {error && <div className="alert alert-danger" role="alert">{error}</div>}
+            {!period && <div className="alert alert-info">Học kỳ đã chọn chưa có đợt đăng ký đang mở.</div>}
+            {/* Page Header */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div>
+                    <h4 className="fw-bold mb-1">
+                        <i className="bi bi-card-checklist text-primary me-2"></i>Cổng Đăng Ký Học Phần Trực Tuyến
+                    </h4>
+                    <p className="text-muted small mb-0">
+                        Đăng ký học phần theo kế hoạch đào tạo, kiểm tra trùng lịch và quản lý tín chỉ tích lũy
+                    </p>
+                </div>
+            </div>
+
             <div className="row g-4">
                 {/* Cột danh sách lớp mở */}
                 <div className="col-lg-8">
@@ -84,10 +86,10 @@ const StudentRegistration = () => {
                         <div className="p-3">
                             <div className="input-group mb-3">
                                 <span className="input-group-text bg-white"><i className="bi bi-search"></i></span>
-                                <input 
-                                    type="text" 
-                                    className="form-control" 
-                                    placeholder="Tìm theo mã lớp, tên môn học, giảng viên phụ trách..." 
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Tìm theo mã lớp, tên môn học, giảng viên phụ trách..."
                                     value={searchTerm}
                                     onChange={handleSearch}
                                 />
@@ -108,9 +110,9 @@ const StudentRegistration = () => {
                                     </thead>
                                     <tbody>
                                         {filteredClasses.length > 0 ? filteredClasses.map(c => {
-                                            const isEnrolled = myEnrollments.some(e => e.class_id === c.id);
+                                            const isEnrolled = myEnrollments.some(e => e.id === c.id);
                                             const isFull = c.current_students >= c.max_students;
-                                            
+
                                             let btnClass = 'btn-outline-primary';
                                             let btnText = 'Đăng Ký';
                                             let disabled = false;
@@ -131,12 +133,12 @@ const StudentRegistration = () => {
                                                     <td className="fw-semibold">{c.subject_name}</td>
                                                     <td>{c.credits}</td>
                                                     <td>{c.lecturer_name || 'Chưa xếp'}</td>
-                                                    <td>Thứ {c.day_of_week}, Tiết {c.start_period}-{c.start_period + c.total_periods - 1} <br/> <small className="text-muted">{c.room}</small></td>
+                                                    <td><ClassSchedule schedules={c.schedules} /></td>
                                                     <td><span className={isFull ? 'text-danger fw-bold' : ''}>{c.current_students} / {c.max_students}</span></td>
                                                     <td className="text-center">
-                                                        <button 
+                                                        <button
                                                             className={`btn btn-sm px-3 fw-semibold ${btnClass}`}
-                                                            disabled={disabled}
+                                                            disabled={disabled || busy || !period || c.grades_locked === 1}
                                                             onClick={() => handleEnroll(c.id)}
                                                         >
                                                             {btnText}
@@ -161,15 +163,15 @@ const StudentRegistration = () => {
                     <div className="card shadow-sm border-0 sticky-top" style={{ top: '90px' }}>
                         <div className="card-header-styled">
                             <h5><i className="bi bi-cart-check text-success"></i> Giỏ Môn Đã Đăng Ký</h5>
-                            <span className="badge bg-primary">{totalCredits} / 24 TC</span>
+                            <span className="badge bg-primary">{totalCredits} / {maxCredits || "—"} TC</span>
                         </div>
                         <div className="p-3">
                             <div className="d-flex justify-content-between small text-muted mb-2">
-                                <span>Giới hạn: Tối thiểu 12 TC</span>
-                                <span>Tối đa: 24 TC</span>
+                                <span>Giới hạn: Tối thiểu {minCredits} TC</span>
+                                <span>Tối đa: {maxCredits || "—"} TC</span>
                             </div>
                             <div className="progress mb-3" style={{ height: '8px' }}>
-                                <div className={`progress-bar ${totalCredits >= 12 ? 'bg-success' : 'bg-warning'}`} style={{ width: `${progressPercent}%` }}></div>
+                                <div className={`progress-bar ${totalCredits >= minCredits ? 'bg-success' : 'bg-warning'}`} style={{ width: `${progressPercent}%` }}></div>
                             </div>
 
                             <div className="list-group list-group-flush mb-3" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -182,12 +184,13 @@ const StudentRegistration = () => {
                                                     Mã Lớp: <span className="text-primary">{e.class_code}</span> • {e.credits} TC
                                                 </div>
                                                 <div className="small text-muted">
-                                                    <i className="bi bi-clock"></i> Thứ {e.day_of_week} (Tiết {e.start_period}-{e.start_period + e.total_periods - 1})
+                                                    <ClassSchedule schedules={e.schedules} />
                                                 </div>
                                             </div>
-                                            <button 
-                                                className="btn btn-outline-danger btn-sm rounded-circle p-1" 
-                                                title="Hủy đăng ký"
+                                            <button
+                                                className="btn btn-outline-danger btn-sm rounded-circle p-1"
+                                                title="Chỉ hủy trong đợt mở và khi chưa có điểm"
+                                                disabled={busy || !period || Boolean(e.grades_locked) || Boolean(e.grade && (e.grade.is_locked || [e.grade.attendance_score, e.grade.midterm_score, e.grade.final_score].some(v => v != null)))}
                                                 onClick={() => handleCancelEnrollment(e.enrollment_id)}
                                             >
                                                 <i className="bi bi-x-lg"></i>

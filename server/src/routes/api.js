@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { verifyToken, requireRole } = require('../middlewares/auth');
+const { requireClassAccess } = require('../middlewares/classAccess');
 const authController = require('../controllers/authController');
 const registrationController = require('../controllers/registrationController');
 const lecturerController = require('../controllers/lecturerController');
@@ -13,6 +14,8 @@ const reportController = require('../controllers/reportController');
 // ==========================================================
 router.post('/auth/login', authController.login);
 router.get('/auth/me', verifyToken, authController.getProfile);
+router.get('/academic/context', verifyToken, registrationController.getContext);
+router.get('/registration/grades', verifyToken, requireRole(['STUDENT']), registrationController.getGrades);
 
 // ==========================================================
 // 2. SINH VIÊN & ĐĂNG KÝ HỌC PHẦN (CHỨC NĂNG 7, 8, 10, 11)
@@ -27,8 +30,8 @@ router.post('/registration/cancel', verifyToken, requireRole(['STUDENT']), regis
 // ==========================================================
 router.get('/lecturer/my-classes', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.getMyClasses);
 router.get('/lecturer/class-students/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.getClassStudents);
-router.post('/lecturer/update-grades', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.updateGrades);
-router.put('/lecturer/lock-grades/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.lockGrades);
+router.post('/lecturer/update-grades', verifyToken, requireRole(['LECTURER', 'ADMIN']), requireClassAccess, lecturerController.updateGrades);
+router.put('/lecturer/lock-grades/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), requireClassAccess, lecturerController.lockGrades);
 router.get('/lecturer/timetable', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.getLecturerTimetable);
 
 // ==========================================================
@@ -75,6 +78,7 @@ router.post('/admin/registration-periods', verifyToken, requireRole(['ADMIN']), 
 router.put('/admin/registration-periods/:id/toggle', verifyToken, requireRole(['ADMIN']), adminController.toggleRegistrationPeriod);
 
 // 4.8. Mở và quản lý lớp học phần (Chức năng 6)
+router.get('/admin/classes', verifyToken, requireRole(['ADMIN']), registrationController.getAllClasses);
 router.post('/admin/create-class', verifyToken, requireRole(['ADMIN']), adminController.createCourseClass);
 router.put('/admin/classes/:id/status', verifyToken, requireRole(['ADMIN']), adminController.updateClassStatus);
 router.get('/admin/classes/:id/students', verifyToken, requireRole(['ADMIN']), adminController.getClassEnrolledStudents);
@@ -82,7 +86,7 @@ router.get('/admin/classes/:id/students', verifyToken, requireRole(['ADMIN']), a
 // ==========================================================
 // 5. THỐNG KÊ, BÁO CÁO & XUẤT FILE EXCEL (CHỨC NĂNG 12)
 // ==========================================================
-router.get('/reports/export-class-excel/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), reportController.exportClassStudentsExcel);
+router.get('/reports/export-class-excel/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), requireClassAccess, reportController.exportClassStudentsExcel);
 router.get('/reports/export-students-excel', verifyToken, requireRole(['ADMIN']), reportController.exportAllStudentsExcel);
 router.get('/reports/academic-stats', verifyToken, requireRole(['ADMIN', 'LECTURER']), reportController.getAcademicReports);
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
@@ -15,10 +15,10 @@ const Login = () => {
         if (e) e.preventDefault();
         setError('');
         setIsLoading(true);
-        
+
         const res = await login(username, password);
         setIsLoading(false);
-        
+
         if (res.success) {
             switch (res.role) {
                 case 'ADMIN': navigate('/admin'); break;
@@ -51,15 +51,15 @@ const Login = () => {
     };
 
     return (
-        <div 
-            className="d-flex align-items-center justify-content-center min-vh-100 position-relative p-3" 
-            style={{ 
+        <div
+            className="d-flex align-items-center justify-content-center min-vh-100 position-relative p-3"
+            style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
                 fontFamily: "'Plus Jakarta Sans', sans-serif"
             }}
         >
             {/* Background Ambient Glows */}
-            <div 
+            <div
                 style={{
                     position: 'absolute',
                     top: '15%',
@@ -71,7 +71,7 @@ const Login = () => {
                     pointerEvents: 'none'
                 }}
             />
-            <div 
+            <div
                 style={{
                     position: 'absolute',
                     bottom: '15%',
@@ -85,7 +85,7 @@ const Login = () => {
             />
 
             <div className="container position-relative" style={{ maxWidth: '480px', zIndex: 1 }}>
-                <div 
+                <div
                     className="card border-0 shadow-2xl rounded-4 overflow-hidden"
                     style={{
                         background: 'rgba(255, 255, 255, 0.96)',
@@ -94,13 +94,13 @@ const Login = () => {
                     }}
                 >
                     {/* Brand Header */}
-                    <div 
+                    <div
                         className="text-white text-center pt-5 pb-4 px-4 position-relative"
                         style={{
                             background: 'linear-gradient(135deg, #312e81 0%, #4f46e5 50%, #06b6d4 100%)'
                         }}
                     >
-                        <div 
+                        <div
                             className="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle shadow"
                             style={{
                                 width: '64px',
@@ -112,7 +112,7 @@ const Login = () => {
                         >
                             <i className="bi bi-mortarboard-fill fs-1 text-white"></i>
                         </div>
-                        <h2 className="fw-extrabold mb-1" style={{ letterSpacing: '-0.03em' }}>UTT EduPortal</h2>
+                        <h2 className="fw-extrabold mb-1" style={{ letterSpacing: '-0.03em' }}>EduPortal</h2>
                         <p className="small mb-0 text-white-70">Hệ Thống Quản Lý Đào Tạo & Đăng Ký Học Phần</p>
                     </div>
 
@@ -186,6 +186,7 @@ const Login = () => {
                         </form>
 
                         {/* Quick Demo Test Buttons */}
+                        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && (
                         <div className="text-center pt-2 border-top">
                             <p className="text-muted small fw-semibold mb-2">
                                 <i className="bi bi-lightning-charge-fill text-warning me-1"></i>
@@ -218,12 +219,13 @@ const Login = () => {
                                 </button>
                             </div>
                         </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Footer Copyright */}
                 <div className="text-center mt-3 text-white-50 small">
-                    © 2026 Đại học Công nghệ Giao thông Vận tải • UTT EduPortal
+                    © 2026 EduPortal • Cổng Quản Lý Đào Tạo Trực Tuyến
                 </div>
             </div>
         </div>

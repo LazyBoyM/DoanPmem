@@ -28,7 +28,7 @@ const ManageLecturers = () => {
         fetchData();
     }, []);
 
-    const fetchData = async () => {
+    async function fetchData() {
         setLoading(true);
         try {
             const [lecRes, deptRes] = await Promise.all([
@@ -377,7 +377,7 @@ const ManageLecturers = () => {
                                             <input
                                                 type="email"
                                                 className="form-control"
-                                                placeholder="gv@utt.edu.vn"
+                                                placeholder="gv@edu.vn"
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                             />

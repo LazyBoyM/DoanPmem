@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/auth-context';
 
 const ManageUsers = () => {
     const { user: currentUser } = useAuth();
@@ -9,20 +10,11 @@ const ManageUsers = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
 
-    // Modal state
-    const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({
-        username: '',
-        password: '',
-        email: '',
-        role: 'LECTURER'
-    });
-
     useEffect(() => {
         fetchUsers();
     }, []);
 
-    const fetchUsers = async () => {
+    async function fetchUsers() {
         setLoading(true);
         try {
             const res = await axiosClient.get('/admin/users');
@@ -75,21 +67,6 @@ const ManageUsers = () => {
         }
     };
 
-    const handleCreateUser = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await axiosClient.post('/admin/users', formData);
-            if (res.success) {
-                alert('Tạo tài khoản người dùng thành công!');
-                setShowModal(false);
-                setFormData({ username: '', password: '', email: '', role: 'LECTURER' });
-                fetchUsers();
-            }
-        } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi tạo tài khoản.');
-        }
-    };
-
     const filteredUsers = users.filter(u => {
         const matchSearch = (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -110,9 +87,10 @@ const ManageUsers = () => {
                             Quản trị tài khoản Giảng viên và Sinh viên, cấp phát quyền hạn và kích hoạt đăng nhập
                         </p>
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
-                        <i className="bi bi-person-plus me-1"></i> Thêm Tài Khoản Mới
-                    </button>
+                    <div className="d-flex gap-2">
+                        <Link className="btn btn-primary btn-sm" to="/admin/students">Tạo hồ sơ & tài khoản sinh viên</Link>
+                        <Link className="btn btn-outline-primary btn-sm" to="/admin/lecturers">Tạo hồ sơ & tài khoản giảng viên</Link>
+                    </div>
                 </div>
 
                 {/* Filter & Search Toolbar */}
@@ -194,8 +172,8 @@ const ManageUsers = () => {
                                         </td>
                                         <td>
                                             <span className={`badge px-2 py-1 ${
-                                                u.role === 'LECTURER' 
-                                                    ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' 
+                                                u.role === 'LECTURER'
+                                                    ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
                                                     : 'bg-primary-subtle text-primary border border-primary-subtle'
                                             }`}>
                                                 <i className={`bi ${u.role === 'LECTURER' ? 'bi-person-workspace' : 'bi-backpack'} me-1`}></i>
@@ -211,8 +189,8 @@ const ManageUsers = () => {
                                             <div className="d-flex justify-content-center gap-1">
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${
-                                                        (u.status === 1 || u.status === 'ACTIVE') 
-                                                            ? 'btn-outline-danger' 
+                                                        (u.status === 1 || u.status === 'ACTIVE')
+                                                            ? 'btn-outline-danger'
                                                             : 'btn-outline-success'
                                                     }`}
                                                     onClick={() => toggleStatus(u)}
@@ -238,71 +216,7 @@ const ManageUsers = () => {
             </div>
 
             {/* Modal Tạo Tài Khoản */}
-            {showModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-bold">
-                                    <i className="bi bi-person-plus text-primary me-2"></i>Thêm Tài Khoản Mới
-                                </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
-                            </div>
-                            <form onSubmit={handleCreateUser}>
-                                <div className="modal-body p-4">
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Tên Đăng Nhập *</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: gv003 hoặc 74dctt25005"
-                                            required
-                                            value={formData.username}
-                                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Email *</label>
-                                        <input
-                                            type="email"
-                                            className="form-control"
-                                            placeholder="email@utt.edu.vn"
-                                            required
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Vai Trò Phân Quyền *</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.role}
-                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        >
-                                            <option value="LECTURER">Giảng Viên (LECTURER)</option>
-                                            <option value="STUDENT">Sinh Viên (STUDENT)</option>
-                                        </select>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold">Mật Khẩu Ban Đầu (Mặc định 123456)</label>
-                                        <input
-                                            type="password"
-                                            className="form-control"
-                                            placeholder="Để trống nếu lấy mật khẩu mặc định 123456"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>Hủy</button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-4">Tạo Tài Khoản</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };
