@@ -1,0 +1,8 @@
+# Ignored by Vercel deployment
+server/test/
+server/scripts/
+server/migrations/
+database/
+.agents/
+.gemini/
+*.log

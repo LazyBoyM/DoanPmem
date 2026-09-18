@@ -107,7 +107,6 @@ Frontend mặc định gọi `/api`, Vite proxy đến backend cổng 5000. Có 
 ## Kiểm tra
 
 Trong `server`: `npm test`. Trong `client`: `npm run lint` và `npm run build`.
-Chi tiết phạm vi đã kiểm chứng và giới hạn MySQL thật nằm trong `INTEGRATION_AUDIT.md`.
 
 
 ### Database cloud và Vercel
