@@ -4,7 +4,7 @@
   "private": true,
   "description": "EduPortal - Hệ thống Quản lý Đào tạo & Đăng ký Học phần",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/src/app.js",
     "server": "cd server && npm start",
     "client": "cd client && npm run dev"
