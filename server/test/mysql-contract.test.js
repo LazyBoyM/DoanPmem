@@ -4,6 +4,40 @@ const db = require('../src/config/db');
 const { transaction, readStore } = require('../src/services/store');
 const controller = require('../src/controllers/registrationController');
 
+test('lecturer report scopes SQL to owned classes and excludes cancelled enrollments', async () => {
+    const originalPool = db.getPool, originalMock = db.isUsingMock;
+    const queries = [];
+    db.isUsingMock = () => false;
+    db.getPool = () => ({ query: async (sql, values) => {
+        queries.push({ sql, values });
+        const table = /FROM `([a-z_]+)`/.exec(sql)?.[1];
+        const rows = {
+            course_classes: [{ id: 5, lecturer_id: 7, subject_id: 2, status: 'OPEN', max_students: 20, current_students: 1 }],
+            subjects: [{ id: 2, credits: 3 }], lecturers: [{ id: 7, full_name: 'Teacher' }], class_schedules: [],
+            enrollments: [{ id: 11, course_class_id: 5, status: 'ENROLLED' }, { id: 12, course_class_id: 5, status: 'CANCELLED' }],
+            grades: [{ id: 13, enrollment_id: 11, total_score_10: 8.5, letter_grade: 'A' }]
+        };
+        return [rows[table]];
+    } });
+    try {
+        let result;
+        await require('../src/controllers/reportController').getAcademicReports({ user: { role: 'LECTURER', lecturer_id: 7 } }, {
+            json: body => { result = body; }, status: code => { throw new Error(`HTTP ${code}`); }
+        });
+        assert.equal(result.data.gradedCount, 1);
+        assert.equal(result.data.passRate, '100.0');
+        assert.equal(result.data.classOccupancy[0].occupancy_rate, 5);
+        assert.match(queries[0].sql, /WHERE `lecturer_id` <=> \?/);
+        assert.deepEqual(queries[0].values, [7]);
+        const enrollmentQuery = queries.find(q => q.sql.includes('FROM `enrollments`'));
+        assert.match(enrollmentQuery.sql, /WHERE `course_class_id` IN/);
+        assert.deepEqual(enrollmentQuery.values, [5]);
+        const gradeQuery = queries.find(q => q.sql.includes('FROM `grades`'));
+        assert.match(gradeQuery.sql, /WHERE `enrollment_id` IN/);
+        assert.deepEqual(gradeQuery.values, [11]);
+    } finally { db.getPool = originalPool; db.isUsingMock = originalMock; }
+});
+
 test('SQL grade writes accept numbered score columns and reject unsafe identifiers', async () => {
     const originalPool = db.getPool, originalMock = db.isUsingMock;
     const calls = [];

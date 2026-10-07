@@ -9,8 +9,9 @@ const getContext = endpoint(async (req, store) => {
     const program = student ? await store.one('programs', { id: student.program_id }) : null;
     return { data: { semesters, periods: periods.map(p => ({ ...p, is_open: isPeriodOpen(p) })), activeSemester: semesters.find(s => s.is_active === 1) || null, program } };
 });
-const getAllClasses = endpoint(async (req, store) => ({ data: semesterFilter(req, await classesWithDetails(store)) }));
-const getOpenClasses = endpoint(async (req, store) => ({ data: semesterFilter(req, await classesWithDetails(store)).filter(c => c.status === 'OPEN') }));
+const classFilter = req => req.query?.semester_id ? { semester_id: integer(req.query.semester_id, 'Học kỳ') } : {};
+const getAllClasses = endpoint(async (req, store) => ({ data: await classesWithDetails(store, undefined, classFilter(req)) }));
+const getOpenClasses = endpoint(async (req, store) => ({ data: await classesWithDetails(store, undefined, { ...classFilter(req), status: 'OPEN' }) }));
 const getMyEnrollments = endpoint(async (req, store) => {
     if (!req.user.student_id) fail('Tài khoản chưa có hồ sơ sinh viên.');
     return { data: semesterFilter(req, await enrollmentsWithDetails(store, req.user.student_id)) };

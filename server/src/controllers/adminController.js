@@ -114,8 +114,8 @@ const resetUserPassword = endpoint(async (req, store) => {
 }, true);
 const getDashboardStats = endpoint(async (_req, store) => {
     const stats = {};
-    for (const [key, table] of Object.entries({ total_users: 'users', total_students: 'students', total_lecturers: 'lecturers', total_subjects: 'subjects', total_classes: 'course_classes' })) stats[key] = (await store.list(table)).length;
-    stats.total_enrollments = (await store.list('enrollments', { status: 'ENROLLED' })).length;
+    for (const [key, table] of Object.entries({ total_users: 'users', total_students: 'students', total_lecturers: 'lecturers', total_subjects: 'subjects', total_classes: 'course_classes' })) stats[key] = await store.count(table);
+    stats.total_enrollments = await store.count('enrollments', { status: 'ENROLLED' });
     return { stats };
 });
 const getAllDepartments = endpoint(async (_req, store) => ({ data: await store.list('departments') }));
@@ -242,9 +242,13 @@ const updateClassStatus = endpoint(async (req, store) => {
 }, true);
 const getClassEnrolledStudents = endpoint(async (req, store) => {
     const cls = await requireRow(store, 'course_classes', req.params.id, 'Lớp');
-    const students = await store.list('students'), grades = await store.list('grades');
-    return { course_class: cls, data: (await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' })).map(e => {
-        const s = students.find(s => s.id === e.student_id), g = grades.find(g => g.enrollment_id === e.id);
+    const enrollments = await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' });
+    const students = await store.related('students', 'id', enrollments.map(e => e.student_id));
+    const grades = await store.related('grades', 'enrollment_id', enrollments.map(e => e.id));
+    const studentById = new Map(students.map(s => [s.id, s]));
+    const gradeByEnrollment = new Map(grades.map(g => [g.enrollment_id, g]));
+    return { course_class: cls, data: enrollments.map(e => {
+        const s = studentById.get(e.student_id), g = gradeByEnrollment.get(e.id);
         return { ...s, ...g, student_id: s?.id, enrollment_id: e.id, enrollment_time: e.enrollment_time };
     }) };
 });

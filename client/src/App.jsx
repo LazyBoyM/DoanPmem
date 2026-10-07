@@ -1,27 +1,23 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth-context';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 
-import Login from './pages/Login';
-import AdminDashboard from './pages/Admin/Dashboard';
-import ManageUsers from './pages/Admin/ManageUsers';
-import ManageStudents from './pages/Admin/ManageStudents';
-import ManageLecturers from './pages/Admin/ManageLecturers';
-import ManageSubjects from './pages/Admin/ManageSubjects';
-import ManageSemesters from './pages/Admin/ManageSemesters';
-import ManageClasses from './pages/Admin/ManageClasses';
-import LecturerDashboard from './pages/Lecturer/Dashboard';
-import LecturerTimetable from './pages/Lecturer/Timetable';
-import StudentDashboard from './pages/Student/Dashboard';
-import StudentTimetable from './pages/Student/Timetable';
-import StudentGrades from './pages/Student/Grades';
-
-// Import CSS
-import 'bootstrap/dist/css/bootstrap.min.css';
-import './index.css';
+const Login = lazy(() => import('./pages/Login'));
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const ManageUsers = lazy(() => import('./pages/Admin/ManageUsers'));
+const ManageStudents = lazy(() => import('./pages/Admin/ManageStudents'));
+const ManageLecturers = lazy(() => import('./pages/Admin/ManageLecturers'));
+const ManageSubjects = lazy(() => import('./pages/Admin/ManageSubjects'));
+const ManageSemesters = lazy(() => import('./pages/Admin/ManageSemesters'));
+const ManageClasses = lazy(() => import('./pages/Admin/ManageClasses'));
+const LecturerDashboard = lazy(() => import('./pages/Lecturer/Dashboard'));
+const LecturerTimetable = lazy(() => import('./pages/Lecturer/Timetable'));
+const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
+const StudentTimetable = lazy(() => import('./pages/Student/Timetable'));
+const StudentGrades = lazy(() => import('./pages/Student/Grades'));
 
 const AppRoutes = () => {
     const { user, loading } = useAuth();
@@ -36,6 +32,7 @@ const AppRoutes = () => {
 
     return (
         <Router>
+            <Suspense fallback={<div className="d-flex justify-content-center p-5" role="status"><span className="spinner-border text-primary" aria-hidden="true" /><span className="visually-hidden">Đang tải trang...</span></div>}>
             <Routes>
                 {/* Public Route */}
                 <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
@@ -80,6 +77,7 @@ const AppRoutes = () => {
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            </Suspense>
         </Router>
     );
 };

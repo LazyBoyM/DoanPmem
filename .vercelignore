@@ -6,3 +6,5 @@ database/
 .agents/
 .gemini/
 *.log
+tmp/
+*.pdf

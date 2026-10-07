@@ -10,6 +10,8 @@ client/dist/
 .env
 server/.env
 *.env.local
+.env.*
+!.env.example
 
 # IDE & Editor
 .vscode/
@@ -29,6 +31,10 @@ server/.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/tmp/
+/nhóm 8 đồ án.pdf
+coverage/
+*.tsbuildinfo
 
 # OS Files
 .DS_Store

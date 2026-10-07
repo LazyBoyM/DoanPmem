@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/auth-context';
 import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
+export default function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -10,226 +10,45 @@ const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
-
-    const handleSubmit = async (e) => {
-        if (e) e.preventDefault();
-        setError('');
-        setIsLoading(true);
-
-        const res = await login(username, password);
-        setIsLoading(false);
-
-        if (res.success) {
-            switch (res.role) {
-                case 'ADMIN': navigate('/admin'); break;
-                case 'LECTURER': navigate('/lecturer'); break;
-                case 'STUDENT': navigate('/student'); break;
-                default: navigate('/');
-            }
-        } else {
-            setError(res.message);
-        }
+    const signIn = async (name, pass) => {
+        if (isLoading) return;
+        setError(''); setIsLoading(true);
+        try {
+            const result = await login(name, pass);
+            if (result.success) navigate(({ ADMIN: '/admin', LECTURER: '/lecturer', STUDENT: '/student' })[result.role] || '/');
+            else setError(result.message || 'Không thể đăng nhập. Vui lòng thử lại.');
+        } catch { setError('Không thể kết nối. Vui lòng thử lại sau.'); }
+        finally { setIsLoading(false); }
     };
-
-    const handleQuickLogin = async (user, pass) => {
-        setUsername(user);
-        setPassword(pass);
-        setError('');
-        setIsLoading(true);
-        const res = await login(user, pass);
-        setIsLoading(false);
-        if (res.success) {
-            switch (res.role) {
-                case 'ADMIN': navigate('/admin'); break;
-                case 'LECTURER': navigate('/lecturer'); break;
-                case 'STUDENT': navigate('/student'); break;
-                default: navigate('/');
-            }
-        } else {
-            setError(res.message);
-        }
-    };
-
-    return (
-        <div
-            className="d-flex align-items-center justify-content-center min-vh-100 position-relative p-3"
-            style={{
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
-                fontFamily: "'Plus Jakarta Sans', sans-serif"
-            }}
-        >
-            {/* Background Ambient Glows */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: '15%',
-                    left: '20%',
-                    width: '320px',
-                    height: '320px',
-                    background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%)',
-                    filter: 'blur(50px)',
-                    pointerEvents: 'none'
-                }}
-            />
-            <div
-                style={{
-                    position: 'absolute',
-                    bottom: '15%',
-                    right: '20%',
-                    width: '350px',
-                    height: '350px',
-                    background: 'radial-gradient(circle, rgba(14, 165, 233, 0.2) 0%, transparent 70%)',
-                    filter: 'blur(60px)',
-                    pointerEvents: 'none'
-                }}
-            />
-
-            <div className="container position-relative" style={{ maxWidth: '480px', zIndex: 1 }}>
-                <div
-                    className="card border-0 shadow-2xl rounded-4 overflow-hidden"
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.96)',
-                        backdropFilter: 'blur(20px)',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                    }}
-                >
-                    {/* Brand Header */}
-                    <div
-                        className="text-white text-center pt-5 pb-4 px-4 position-relative"
-                        style={{
-                            background: 'linear-gradient(135deg, #312e81 0%, #4f46e5 50%, #06b6d4 100%)'
-                        }}
-                    >
-                        <div
-                            className="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle shadow"
-                            style={{
-                                width: '64px',
-                                height: '64px',
-                                background: 'rgba(255, 255, 255, 0.15)',
-                                backdropFilter: 'blur(10px)',
-                                border: '1px solid rgba(255, 255, 255, 0.3)'
-                            }}
-                        >
-                            <i className="bi bi-mortarboard-fill fs-1 text-white"></i>
-                        </div>
-                        <h2 className="fw-extrabold mb-1" style={{ letterSpacing: '-0.03em' }}>EduPortal</h2>
-                        <p className="small mb-0 text-white-70">Hệ Thống Quản Lý Đào Tạo & Đăng Ký Học Phần</p>
-                    </div>
-
-                    <div className="card-body p-4 p-md-5">
-                        {error && (
-                            <div className="alert alert-danger border-0 rounded-3 shadow-sm d-flex align-items-center gap-2 mb-4">
-                                <i className="bi bi-exclamation-triangle-fill fs-5"></i>
-                                <span>{error}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleSubmit}>
-                            <div className="mb-3">
-                                <label className="form-label small fw-bold text-secondary">Tài Khoản Đăng Nhập</label>
-                                <div className="input-group">
-                                    <span className="input-group-text bg-light border-end-0 text-muted px-3">
-                                        <i className="bi bi-person fs-5"></i>
-                                    </span>
-                                    <input
-                                        type="text"
-                                        className="form-control bg-light border-start-0 py-2 fs-6"
-                                        placeholder="Mã SV, Mã GV hoặc Tên đăng nhập"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="form-label small fw-bold text-secondary">Mật Khẩu</label>
-                                <div className="input-group">
-                                    <span className="input-group-text bg-light border-end-0 text-muted px-3">
-                                        <i className="bi bi-lock fs-5"></i>
-                                    </span>
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        className="form-control bg-light border-start-0 border-end-0 py-2 fs-6"
-                                        placeholder="Nhập mật khẩu..."
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        className="input-group-text bg-light border-start-0 text-muted px-3"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button
-                                className="btn btn-primary w-100 py-3 fw-bold rounded-3 mb-4 shadow-sm text-uppercase"
-                                type="submit"
-                                disabled={isLoading}
-                                style={{ letterSpacing: '0.04em' }}
-                            >
-                                {isLoading ? (
-                                    <span>
-                                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                        Đang xác thực...
-                                    </span>
-                                ) : (
-                                    <span>
-                                        <i className="bi bi-box-arrow-in-right me-2"></i> Đăng Nhập Hệ Thống
-                                    </span>
-                                )}
-                            </button>
-                        </form>
-
-                        {/* Quick Demo Test Buttons */}
-                        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && (
-                        <div className="text-center pt-2 border-top">
-                            <p className="text-muted small fw-semibold mb-2">
-                                <i className="bi bi-lightning-charge-fill text-warning me-1"></i>
-                                Đăng nhập nhanh 1-Click (Tài khoản thử nghiệm):
-                            </p>
-                            <div className="d-flex justify-content-center gap-2 flex-wrap">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-primary btn-sm px-3 py-2 d-flex align-items-center gap-2"
-                                    onClick={() => handleQuickLogin('admin', '123456')}
-                                >
-                                    <i className="bi bi-shield-check"></i>
-                                    <span>Admin</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-success btn-sm px-3 py-2 d-flex align-items-center gap-2"
-                                    onClick={() => handleQuickLogin('gv_thuan', '123456')}
-                                >
-                                    <i className="bi bi-person-workspace"></i>
-                                    <span>Giảng viên</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-info btn-sm px-3 py-2 d-flex align-items-center gap-2"
-                                    onClick={() => handleQuickLogin('74dctt25001', '123456')}
-                                >
-                                    <i className="bi bi-backpack"></i>
-                                    <span>Sinh viên</span>
-                                </button>
-                            </div>
-                        </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Footer Copyright */}
-                <div className="text-center mt-3 text-white-50 small">
-                    © 2026 EduPortal • Cổng Quản Lý Đào Tạo Trực Tuyến
+    return <div className="login-page">
+        <section className="login-story" aria-label="Giới thiệu EduPortal">
+            <div className="brand-logo-wrapper"><span className="brand-icon"><i className="bi bi-mortarboard-fill" aria-hidden="true" /></span><span><span className="brand-name">EduPortal<span className="brand-dot">.</span></span><span className="brand-sub">Cổng quản lý đào tạo</span></span></div>
+            <div className="login-story-content">
+                <span className="eyebrow login-eyebrow"><span className="status-dot" /> KHÔNG GIAN ĐÀO TẠO SỐ</span>
+                <h1>Một cổng kết nối.<br /><span>Trọn hành trình<br />học tập.</span></h1>
+                <p>Quản lý đào tạo, đăng ký học phần và theo dõi kết quả học tập trong một không gian thống nhất.</p>
+                <div className="login-journey" aria-label="Các chức năng đào tạo">
+                    <div><span className="journey-icon"><i className="bi bi-journal-plus" /></span><span><strong>Chủ động kế hoạch học tập</strong><small>Đăng ký học phần & thời khóa biểu</small></span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div>
+                    <div><span className="journey-icon"><i className="bi bi-bar-chart" /></span><span><strong>Theo dõi từng bước tiến</strong><small>Bảng điểm & kết quả tích lũy</small></span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div>
+                    <div><span className="journey-icon"><i className="bi bi-buildings" /></span><span><strong>Kết nối công tác đào tạo</strong><small>Sinh viên, giảng viên & nhà trường</small></span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div>
                 </div>
             </div>
-        </div>
-    );
-};
-
-export default Login;
+            <div className="login-story-footer"><span>Học tập. Kết nối. Phát triển.</span><span>EDUPORTAL / {new Date().getFullYear()}</span></div>
+        </section>
+        <main className="login-main">
+            <div className="login-form-wrap">
+                <span className="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
+                <h2>Đăng nhập</h2><p className="login-intro">Sử dụng tài khoản được nhà trường cấp để truy cập cổng đào tạo.</p>
+                {error && <div className="alert alert-danger" role="alert"><i className="bi bi-exclamation-circle me-2" />{error}</div>}
+                <form onSubmit={event => { event.preventDefault(); signIn(username, password); }}>
+                    <div className="mb-4"><label htmlFor="login-username" className="form-label">Tài khoản</label><div className="login-input"><i className="bi bi-person" aria-hidden="true" /><input id="login-username" className="form-control" placeholder="Mã sinh viên hoặc tên đăng nhập" autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} required disabled={isLoading} /></div></div>
+                    <div className="mb-4"><label htmlFor="login-password" className="form-label">Mật khẩu</label><div className="login-input"><i className="bi bi-lock" aria-hidden="true" /><input id="login-password" className="form-control" type={showPassword ? 'text' : 'password'} placeholder="Nhập mật khẩu của bạn" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required disabled={isLoading} /><button type="button" className="password-toggle" onClick={() => setShowPassword(previous => !previous)} aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword}><i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} /></button></div></div>
+                    <button type="submit" className="btn btn-primary login-submit" disabled={isLoading}>{isLoading ? <><span className="spinner-border spinner-border-sm" aria-hidden="true" /> Đang xác thực…</> : <>Đăng nhập <i className="bi bi-arrow-right" aria-hidden="true" /></>}</button>
+                </form>
+                <div className="login-help"><i className="bi bi-info-circle" aria-hidden="true" /><span>Nếu bạn quên mật khẩu, vui lòng liên hệ phòng đào tạo để được hỗ trợ.</span></div>
+                {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && <div className="demo-login"><span className="eyebrow">TÀI KHOẢN THỬ NGHIỆM</span><div className="d-flex gap-2 flex-wrap mt-2">{[['admin', 'Quản trị viên'], ['gv_thuan', 'Giảng viên'], ['74dctt25001', 'Sinh viên']].map(([name, label]) => <button key={name} className="btn btn-outline-secondary btn-sm" disabled={isLoading} onClick={() => { setUsername(name); setPassword('123456'); signIn(name, '123456'); }}>{label}</button>)}</div></div>}
+            </div>
+            <footer className="login-footer">© {new Date().getFullYear()} EduPortal · Cổng đào tạo trực tuyến</footer>
+        </main>
+    </div>;
+}

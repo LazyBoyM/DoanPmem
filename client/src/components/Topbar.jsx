@@ -1,57 +1,23 @@
-import React, { useState, useEffect } from 'react';
 import { useAcademic } from '../context/academic-context';
+import { useLocation } from 'react-router-dom';
 
-const Topbar = () => {
-    const { semester, period, loading, error } = useAcademic();
-    const [currentTime, setCurrentTime] = useState('');
-
-    useEffect(() => {
-        const updateTime = () => {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-            setCurrentTime(`${dateStr} • ${timeStr}`);
-        };
-        updateTime();
-        const timer = setInterval(updateTime, 1000);
-        return () => clearInterval(timer);
-    }, []);
-
-    return (
-        <header className="app-topbar">
-            <div className="d-flex align-items-center gap-2">
-                <span className="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-bold" style={{ fontSize: '0.8rem', letterSpacing: '0.02em' }}>
-                    <i className="bi bi-mortarboard-fill me-1.5"></i> EDUPORTAL
-                </span>
-                <span className="text-secondary small fw-medium d-none d-md-inline">
-                    Hệ Thống Đào Tạo & Đăng Ký Tín Chỉ
-                </span>
-            </div>
-
-            <div className="topbar-right-controls">
-                {currentTime && (
-                    <span className="text-muted small fw-semibold d-none d-lg-inline-block">
-                        <i className="bi bi-clock me-1 text-secondary"></i>{currentTime}
-                    </span>
-                )}
-                <div className="academic-semester-pill">
-                    <i className="bi bi-calendar3"></i>
-                    <span>{semester?.semester_name || 'Chưa chọn học kỳ'}</span>
-                </div>
-                <div className={`d-flex align-items-center gap-2 px-3 py-1 border rounded-pill ${period ? 'bg-success-subtle' : 'bg-light'}`}>
-                    {period && <span className="pulse-dot"></span>}
-                    <span className={`fw-bold small ${period ? 'text-success' : 'text-secondary'}`}>{loading ? 'Đang tải...' : error ? 'Không rõ trạng thái ĐKHP' : period ? 'Cổng ĐKHP Mở' : 'Cổng ĐKHP Đóng'}</span>
-                </div>
-                <button
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => window.location.reload()}
-                    title="Làm mới dữ liệu trang"
-                >
-                    <i className="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
-        </header>
-    );
+const titles = {
+    '/admin': 'Bảng điều khiển', '/admin/students': 'Sinh viên', '/admin/lecturers': 'Giảng viên',
+    '/admin/subjects': 'Môn học', '/admin/classes': 'Lớp học phần', '/admin/semesters': 'Học kỳ & đăng ký', '/admin/users': 'Tài khoản & phân quyền',
+    '/lecturer/grades': 'Lớp học & bảng điểm', '/lecturer/timetable': 'Lịch giảng dạy',
+    '/student/registration': 'Đăng ký học phần', '/student/timetable': 'Thời khóa biểu', '/student/grades': 'Kết quả học tập',
 };
-
-export default Topbar;
+export default function Topbar({ menuOpen, onMenuToggle }) {
+    const { semester, period, loading, error } = useAcademic();
+    const { pathname } = useLocation();
+    return <header className="app-topbar">
+        <div className="topbar-location">
+            <button className="icon-button mobile-menu-toggle" onClick={onMenuToggle} aria-label="Mở menu điều hướng" aria-expanded={menuOpen} aria-controls="app-navigation"><i className="bi bi-list" /></button>
+            <span className="topbar-home"><i className="bi bi-house-door" aria-hidden="true" /></span><span className="breadcrumb-divider">/</span><span className="topbar-page">{titles[pathname] || 'Cổng đào tạo'}</span>
+        </div>
+        <div className="topbar-right-controls">
+            <span className="academic-semester-pill"><i className="bi bi-calendar3" aria-hidden="true" /><span>{semester?.semester_name || 'Chưa chọn học kỳ'}</span></span>
+            <span className={`portal-status-tag ${period && !error && !loading ? 'is-open' : ''}`}><span className="status-dot" /><span>{loading ? 'Đang tải' : error ? 'Chưa rõ trạng thái' : period ? 'Đăng ký đang mở' : 'Đăng ký đã đóng'}</span></span>
+        </div>
+    </header>;
+}

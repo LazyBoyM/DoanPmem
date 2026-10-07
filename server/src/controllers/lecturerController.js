@@ -3,8 +3,10 @@ const { requireRow, classesWithDetails, checkClassAccess, integer } = require('.
 const { convertGrade } = require('../services/scheduleConflictService');
 const emptyGrade = { attendance_score: null, midterm_score: null, final_score: null, total_score_10: null, total_score_4: null, letter_grade: null, is_locked: 0 };
 async function visibleClasses(req, store) {
-    return (await classesWithDetails(store)).filter(c => c.status !== 'CANCELLED' && (req.user.role === 'ADMIN' || c.lecturer_id === req.user.lecturer_id) &&
-        (!req.query.semester_id || c.semester_id === integer(req.query.semester_id, 'Học kỳ')));
+    const filter = req.user.role === 'ADMIN' ? {} : { lecturer_id: req.user.lecturer_id };
+    if (req.query.semester_id) filter.semester_id = integer(req.query.semester_id, 'Học kỳ');
+    const classes = await store.list('course_classes', filter);
+    return classesWithDetails(store, classes.filter(c => c.status !== 'CANCELLED').map(c => c.id));
 }
 const getMyClasses = endpoint(async (req, store) => ({ data: await visibleClasses(req, store) }));
 const getLecturerTimetable = endpoint(async (req, store) => {
@@ -14,11 +16,15 @@ const getLecturerTimetable = endpoint(async (req, store) => {
 const getClassStudents = endpoint(async (req, store) => {
     const cls = await requireRow(store, 'course_classes', req.params.classId, 'Lớp');
     checkClassAccess(req.user, cls);
-    const students = await store.list('students'), grades = await store.list('grades');
-    return { course_class: cls, data: (await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' })).map(e => {
-        const student = students.find(s => s.id === e.student_id);
-        return { ...emptyGrade, ...grades.find(g => g.enrollment_id === e.id), enrollment_id: e.id, student_id: student.id,
-            student_code: student.student_code, full_name: student.full_name, class_name: student.class_name, is_locked: Number(cls.grades_locked || grades.find(g => g.enrollment_id === e.id)?.is_locked || 0) };
+    const enrollments = await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' });
+    const students = await store.related('students', 'id', enrollments.map(e => e.student_id));
+    const grades = await store.related('grades', 'enrollment_id', enrollments.map(e => e.id));
+    const studentById = new Map(students.map(s => [s.id, s]));
+    const gradeByEnrollment = new Map(grades.map(g => [g.enrollment_id, g]));
+    return { course_class: cls, data: enrollments.map(e => {
+        const student = studentById.get(e.student_id), grade = gradeByEnrollment.get(e.id);
+        return { ...emptyGrade, ...grade, enrollment_id: e.id, student_id: student.id,
+            student_code: student.student_code, full_name: student.full_name, class_name: student.class_name, is_locked: Number(cls.grades_locked || grade?.is_locked || 0) };
     }) };
 });
 const updateGrades = endpoint(async (req, store) => {

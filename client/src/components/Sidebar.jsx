@@ -1,189 +1,48 @@
-import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 
-const Sidebar = () => {
+const menus = {
+    ADMIN: [
+        { title: 'Tổng quan', items: [['/admin', 'bi-grid-1x2', 'Bảng điều khiển']] },
+        { title: 'Quản lý đào tạo', items: [['/admin/students', 'bi-people', 'Sinh viên'], ['/admin/lecturers', 'bi-person-workspace', 'Giảng viên'], ['/admin/subjects', 'bi-journal-bookmark', 'Môn học'], ['/admin/classes', 'bi-collection', 'Lớp học phần'], ['/admin/semesters', 'bi-calendar3', 'Học kỳ & đăng ký']] },
+        { title: 'Hệ thống', items: [['/admin/users', 'bi-shield-check', 'Tài khoản & phân quyền']] },
+    ],
+    LECTURER: [{ title: 'Không gian giảng viên', items: [['/lecturer/grades', 'bi-journal-check', 'Lớp học & bảng điểm'], ['/lecturer/timetable', 'bi-calendar3', 'Lịch giảng dạy']] }],
+    STUDENT: [{ title: 'Không gian sinh viên', items: [['/student/registration', 'bi-journal-plus', 'Đăng ký học phần'], ['/student/timetable', 'bi-calendar3', 'Thời khóa biểu'], ['/student/grades', 'bi-bar-chart', 'Kết quả học tập']] }],
+};
+const roles = { ADMIN: 'Quản trị viên', LECTURER: 'Giảng viên', STUDENT: 'Sinh viên' };
+
+export default function Sidebar({ open, onClose }) {
     const { user, login, logout } = useAuth();
     const navigate = useNavigate();
-
     if (!user) return null;
-
-    const handleQuickSwitch = async (roleName) => {
-        if (roleName === 'ADMIN' && user.role !== 'ADMIN') {
-            const res = await login('admin', '123456');
-            if (res.success) navigate('/admin');
-        } else if (roleName === 'LECTURER' && user.role !== 'LECTURER') {
-            const res = await login('gv_thuan', '123456');
-            if (res.success) navigate('/lecturer');
-        } else if (roleName === 'STUDENT' && user.role !== 'STUDENT') {
-            const res = await login('74dctt25001', '123456');
-            if (res.success) navigate('/student');
-        }
+    const quickSwitch = async role => {
+        const names = { ADMIN: 'admin', LECTURER: 'gv_thuan', STUDENT: '74dctt25001' };
+        const result = await login(names[role], '123456');
+        if (result.success) { onClose(); navigate(`/${role.toLowerCase()}`); }
     };
-
-    const renderMenu = () => {
-        if (user.role === 'ADMIN') {
-            return (
-                <>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin" end className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-speedometer2"></i> Tổng Quan & Thống Kê
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/users" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-shield-lock"></i> Quản Lý Tài Khoản
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/students" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-backpack"></i> Quản Lý Sinh Viên
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/lecturers" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-person-workspace"></i> Quản Lý Giảng Viên
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/subjects" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-journal-bookmark"></i> Danh Mục Môn Học
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/semesters" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-calendar2-range"></i> Năm Học & Đợt ĐKHP
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/admin/classes" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-collection-play"></i> Quản Trị Lớp Học Phần
-                        </NavLink>
-                    </li>
-                </>
-            );
-        } else if (user.role === 'LECTURER') {
-            return (
-                <>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/lecturer/grades" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-journal-check"></i> Quản Lý Lớp & Nhập Điểm
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/lecturer/timetable" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-calendar-event"></i> Lịch Giảng Dạy Tuần
-                        </NavLink>
-                    </li>
-                </>
-            );
-        } else if (user.role === 'STUDENT') {
-            return (
-                <>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/student/registration" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-card-checklist"></i> Đăng Ký Học Phần
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/student/timetable" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-calendar3-week"></i> Thời Khóa Biểu Tuần
-                        </NavLink>
-                    </li>
-                    <li className="sidebar-menu-item">
-                        <NavLink to="/student/grades" className={({isActive}) => `sidebar-menu-link ${isActive ? 'active' : ''}`}>
-                            <i className="bi bi-award"></i> Kết Quả Học Tập
-                        </NavLink>
-                    </li>
-                </>
-            );
-        }
-    };
-
-    const getRoleName = () => {
-        if (user.role === 'ADMIN') return 'Quản trị viên (Admin)';
-        if (user.role === 'LECTURER') return 'Giảng viên';
-        return 'Sinh viên';
-    };
-
-    const getAvatarText = () => {
-        if (user.role === 'ADMIN') return 'QV';
-        if (user.role === 'LECTURER') return 'GV';
-        return 'SV';
-    };
-
-    return (
-        <aside className="app-sidebar">
-            <div className="sidebar-header">
-                <div className="brand-logo-wrapper">
-                    <div className="brand-icon">
-                        <i className="bi bi-mortarboard-fill"></i>
-                    </div>
-                    <div>
-                        <div className="brand-name">EduPortal</div>
-                        <div className="brand-sub">Cổng Quản Lý Đào Tạo</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Quick Demo Role Switcher */}
-            {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && (
-            <div className="sidebar-role-selector">
-                <div className="sidebar-role-label">
-                    <i className="bi bi-arrow-repeat text-info"></i> Chuyển đổi vai trò test:
-                </div>
-                <div className="quick-role-buttons">
-                    <button
-                        className={`btn-role-quick ${user.role === 'ADMIN' ? 'active' : ''}`}
-                        onClick={() => handleQuickSwitch('ADMIN')}
-                        title="Đăng nhập tài khoản Admin"
-                    >
-                        <i className="bi bi-shield-check"></i> Admin
-                    </button>
-                    <button
-                        className={`btn-role-quick ${user.role === 'LECTURER' ? 'active' : ''}`}
-                        onClick={() => handleQuickSwitch('LECTURER')}
-                        title="Đăng nhập Giảng viên"
-                    >
-                        <i className="bi bi-person-workspace"></i> GV
-                    </button>
-                    <button
-                        className={`btn-role-quick ${user.role === 'STUDENT' ? 'active' : ''}`}
-                        onClick={() => handleQuickSwitch('STUDENT')}
-                        title="Đăng nhập Sinh viên"
-                    >
-                        <i className="bi bi-backpack"></i> SV
-                    </button>
-                </div>
-            </div>
-
-            )}
-
-            <div className="sidebar-nav-container">
-                <div className="nav-section-title">MENU CHỨC NĂNG</div>
-                <ul className="sidebar-menu">
-                    {renderMenu()}
-                </ul>
-            </div>
-
-            <div className="sidebar-footer">
-                <div className="user-profile-widget">
-                    <div className="user-avatar-circle">{getAvatarText()}</div>
-                    <div className="user-info-text">
-                        <div className="user-display-name text-truncate" title={user.full_name || user.username}>
-                            {user.full_name || user.username}
-                        </div>
-                        <span className="user-display-role text-truncate" title={getRoleName()}>
-                            {getRoleName()}
-                        </span>
-                    </div>
-                    <button className="btn-sidebar-logout" onClick={logout} title="Đăng xuất">
-                        <i className="bi bi-box-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-        </aside>
-    );
-};
-
-export default Sidebar;
+    const initials = (user.full_name || user.username).trim().split(/\s+/).slice(-2).map(word => word[0]).join('').toUpperCase();
+    return <aside id="app-navigation" className={`app-sidebar ${open ? 'is-open' : ''}`} aria-label="Điều hướng chính">
+        <div className="sidebar-header">
+            <NavLink to="/" className="brand-logo-wrapper" onClick={onClose}>
+                <span className="brand-icon"><i className="bi bi-mortarboard-fill" aria-hidden="true" /></span>
+                <span><span className="brand-name">EduPortal<span className="brand-dot">.</span></span><span className="brand-sub">Quản lý đào tạo</span></span>
+            </NavLink>
+            <button className="icon-button sidebar-close" onClick={onClose} aria-label="Đóng menu"><i className="bi bi-x-lg" /></button>
+        </div>
+        <div className="workspace-label"><span className="workspace-mark"><i className="bi bi-buildings" /></span><div><strong>Cổng đào tạo</strong><small>{roles[user.role]}</small></div><i className="bi bi-chevron-expand ms-auto text-muted" aria-hidden="true" /></div>
+        <nav className="sidebar-nav-container">
+            {(menus[user.role] || []).map(section => <div key={section.title}>
+                <div className="nav-section-title">{section.title}</div>
+                <ul className="sidebar-menu">{section.items.map(([path, icon, label]) => <li key={path}>
+                    <NavLink to={path} end className={({ isActive }) => `sidebar-menu-link ${isActive ? 'active' : ''}`} onClick={onClose}><i className={`bi ${icon}`} aria-hidden="true" /><span>{label}</span></NavLink>
+                </li>)}</ul>
+            </div>)}
+            {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true' && <div className="sidebar-role-selector"><div className="nav-section-title">Tài khoản thử nghiệm</div><div className="quick-role-buttons">{Object.keys(roles).map(role => <button key={role} className={`btn-role-quick ${user.role === role ? 'active' : ''}`} onClick={() => quickSwitch(role)}>{roles[role]}</button>)}</div></div>}
+        </nav>
+        <div className="sidebar-footer"><div className="user-profile-widget">
+            <div className="user-avatar-circle">{initials}</div><div className="user-info-text"><div className="user-display-name" title={user.full_name || user.username}>{user.full_name || user.username}</div><span className="user-display-role">{roles[user.role]}</span></div>
+            <button className="btn-sidebar-logout" onClick={logout} title="Đăng xuất" aria-label="Đăng xuất"><i className="bi bi-box-arrow-right" /></button>
+        </div></div>
+    </aside>;
+}

@@ -17,6 +17,13 @@ function createStore(connection, writing = false, memory = db.mockDb) {
         return [entries.length ? ' WHERE ' + entries.map(([key]) => `${identifier(key)} <=> ?`).join(' AND ') : '', entries.map(([, value]) => value)];
     }
     return {
+        async count(table, filter = {}) {
+            const name = tableName(table);
+            if (!connection) return memory[table].reduce((total, row) => total + Number(Object.entries(filter).every(([key, value]) => row[key] === value)), 0);
+            const [clause, values] = where(filter);
+            const [rows] = await connection.query(`SELECT COUNT(*) AS total FROM ${name}${clause}`, values);
+            return Number(rows[0].total);
+        },
         async list(table, filter = {}, options = {}) {
             const name = tableName(table);
             if (!connection) return structuredClone(memory[table].filter(row => Object.entries(filter).every(([key, value]) => row[key] === value)));
@@ -29,7 +36,10 @@ function createStore(connection, writing = false, memory = db.mockDb) {
             const name = tableName(table), column = identifier(key);
             const values = [...new Set(ids)];
             if (!values.length) return [];
-            if (!connection) return structuredClone(memory[table].filter(row => values.includes(row[key])));
+            if (!connection) {
+                const matches = new Set(values);
+                return structuredClone(memory[table].filter(row => matches.has(row[key])));
+            }
             const [rows] = await connection.query(`SELECT * FROM ${name} WHERE ${column} IN (${values.map(() => '?').join(',')}) ORDER BY id`, values);
             return rows;
         },

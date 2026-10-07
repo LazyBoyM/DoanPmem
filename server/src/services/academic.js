@@ -26,25 +26,34 @@ async function requireRow(store, table, id, label = 'Dữ liệu') {
     if (!row) fail(`${label} không tồn tại.`, 404);
     return row;
 }
-async function classesWithDetails(store, ids) {
-    const classes = ids ? await store.related('course_classes', 'id', ids) : await store.list('course_classes');
+async function classesWithDetails(store, ids, filter = {}) {
+    const classes = ids ? await store.related('course_classes', 'id', ids) : await store.list('course_classes', filter);
     const subjects = await store.related('subjects', 'id', classes.map(c => c.subject_id));
     const lecturers = await store.related('lecturers', 'id', classes.map(c => c.lecturer_id).filter(Boolean));
     const schedules = await store.related('class_schedules', 'course_class_id', classes.map(c => c.id));
+    const subjectById = new Map(subjects.map(s => [s.id, s]));
+    const lecturerById = new Map(lecturers.map(l => [l.id, l]));
+    const schedulesByClass = new Map();
+    for (const schedule of schedules) {
+        if (!schedulesByClass.has(schedule.course_class_id)) schedulesByClass.set(schedule.course_class_id, []);
+        schedulesByClass.get(schedule.course_class_id).push(schedule);
+    }
     return classes.map(c => {
-        const subject = subjects.find(s => s.id === c.subject_id);
+        const subject = subjectById.get(c.subject_id);
         return { ...c, subject_code: subject?.subject_code || '', subject_name: subject?.subject_name || '',
-            credits: Number(subject?.credits || 0), lecturer_name: lecturers.find(l => l.id === c.lecturer_id)?.full_name || null,
-            schedules: schedules.filter(s => s.course_class_id === c.id) };
+            credits: Number(subject?.credits || 0), lecturer_name: lecturerById.get(c.lecturer_id)?.full_name || null,
+            schedules: schedulesByClass.get(c.id) || [] };
     });
 }
 async function enrollmentsWithDetails(store, studentId) {
     const enrollments = await store.list('enrollments', { student_id: studentId, status: 'ENROLLED' });
     const classes = await classesWithDetails(store, enrollments.map(e => e.course_class_id));
     const grades = await store.related('grades', 'enrollment_id', enrollments.map(e => e.id));
+    const classById = new Map(classes.filter(c => c.status !== 'CANCELLED').map(c => [c.id, c]));
+    const gradeByEnrollment = new Map(grades.map(g => [g.enrollment_id, g]));
     return enrollments.flatMap(e => {
-        const cls = classes.find(c => c.id === e.course_class_id && c.status !== 'CANCELLED');
-        return cls ? [{ ...cls, enrollment_id: e.id, enrollment_time: e.enrollment_time, grade: grades.find(g => g.enrollment_id === e.id) || null }] : [];
+        const cls = classById.get(e.course_class_id);
+        return cls ? [{ ...cls, enrollment_id: e.id, enrollment_time: e.enrollment_time, grade: gradeByEnrollment.get(e.id) || null }] : [];
     });
 }
 function checkClassAccess(user, cls) {
