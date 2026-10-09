@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useAcademic } from '../../context/academic-context';
 import SemesterSelect from '../../components/SemesterSelect';
@@ -10,6 +10,7 @@ const StudentRegistration = () => {
     const [result, setResult] = useState({ semesterId: '', classes: [], enrollments: [] });
     const [searchTerm, setSearchTerm] = useState('');
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState(null);
     const [busy, setBusy] = useState(false);
     const navigate = useNavigate();
     const fetchData = useCallback(async (signal) => {
@@ -37,20 +38,22 @@ const StudentRegistration = () => {
     const filteredClasses = openClasses.filter(c => [c.class_code, c.subject_name, c.lecturer_name].some(value => (value || '').toLowerCase().includes(searchTerm.toLowerCase())));
     const handleSearch = e => setSearchTerm(e.target.value);
     const handleEnroll = async classId => {
-        setBusy(true);
+        setBusy(true); setNotice(null);
         try {
             await axiosClient.post('/registration/enroll', { course_class_id: classId });
+            setNotice({ type: 'success', text: 'Đã đăng ký lớp. Kiểm tra danh sách đã đăng ký và thời khóa biểu.' });
             await fetchData();
-        } catch (err) { alert(err.response?.data?.message || 'Lỗi đăng ký học phần'); }
+        } catch (err) { setNotice({ type: 'danger', text: err.response?.data?.message || 'Không đăng ký được học phần.' }); }
         finally { setBusy(false); refresh(); }
     };
     const handleCancelEnrollment = async enrollmentId => {
         if (!window.confirm('Hủy đăng ký lớp học phần này?')) return;
-        setBusy(true);
+        setBusy(true); setNotice(null);
         try {
             await axiosClient.post('/registration/cancel', { enrollment_id: enrollmentId });
+            setNotice({ type: 'success', text: 'Đã hủy đăng ký lớp học phần.' });
             await fetchData();
-        } catch (err) { alert(err.response?.data?.message || 'Lỗi hủy đăng ký'); }
+        } catch (err) { setNotice({ type: 'danger', text: err.response?.data?.message || 'Không hủy được đăng ký.' }); }
         finally { setBusy(false); refresh(); }
     };
     const totalCredits = myEnrollments.reduce((sum, item) => sum + Number(item.credits || 0), 0);
@@ -61,6 +64,7 @@ const StudentRegistration = () => {
     return (
         <div className="student-pane">
             <SemesterSelect />
+            {notice && <div className={`alert alert-${notice.type}`} role="status">{notice.text}</div>}
             {error && <div className="alert alert-danger" role="alert">{error}</div>}
             {!period && <div className="alert alert-info">Học kỳ đã chọn chưa có đợt đăng ký đang mở.</div>}
             {/* Page Header */}
@@ -104,7 +108,7 @@ const StudentRegistration = () => {
                                             <th>Số TC</th>
                                             <th>Giảng Viên</th>
                                             <th>Lịch Học</th>
-                                            <th>Sĩ Số / Slot</th>
+                                            <th>Sĩ số / sức chứa</th>
                                             <th className="text-center">Thao Tác</th>
                                         </tr>
                                     </thead>
@@ -119,7 +123,7 @@ const StudentRegistration = () => {
 
                                             if (isEnrolled) {
                                                 btnClass = 'btn-success disabled';
-                                                btnText = 'Đã ĐK';
+                                                btnText = 'Đã đăng ký';
                                                 disabled = true;
                                             } else if (isFull) {
                                                 btnClass = 'btn-secondary disabled';

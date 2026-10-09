@@ -70,6 +70,7 @@ function deleteProfile(student) {
             for (const e of await store.list('enrollments', { student_id: row.id })) {
                 const cls = await requireRow(store, 'course_classes', e.course_class_id);
                 if (e.status === 'ENROLLED') await store.update('course_classes', cls.id, { current_students: Math.max(0, cls.current_students - 1) });
+                await store.remove('resit_attempts', { enrollment_id: e.id });
                 await store.remove('grades', { enrollment_id: e.id });
                 await store.remove('enrollments', { id: e.id });
             }
@@ -233,6 +234,7 @@ const updateClassStatus = endpoint(async (req, store) => {
         if (enrollments.some(e => hasGrade(grades.find(g => g.enrollment_id === e.id)))) fail('Lớp đã có điểm hoặc khóa điểm không thể hủy.');
         for (const e of enrollments) {
             await store.update('enrollments', e.id, { status: 'CANCELLED' });
+            await store.remove('resit_attempts', { enrollment_id: e.id });
             await store.remove('grades', { enrollment_id: e.id });
         }
         await store.remove('class_schedules', { course_class_id: cls.id });

@@ -8,6 +8,11 @@ const registrationController = require('../controllers/registrationController');
 const lecturerController = require('../controllers/lecturerController');
 const adminController = require('../controllers/adminController');
 const reportController = require('../controllers/reportController');
+const academicController = require('../controllers/academicController');
+router.get('/academic/students', verifyToken, requireRole(['ADMIN', 'LECTURER']), academicController.getStudents);
+router.get('/academic/students/:studentId/transcript', verifyToken, requireRole(['ADMIN', 'LECTURER']), academicController.getTranscript);
+router.post('/academic/resits', verifyToken, requireRole(['STUDENT']), academicController.requestResit);
+router.put('/academic/resits', verifyToken, requireRole(['ADMIN', 'LECTURER']), academicController.recordResit);
 
 // ==========================================================
 // 1. AUTH & PROFILE (Public & Authenticated)

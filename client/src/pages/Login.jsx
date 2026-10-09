@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import WorkspaceArt from '../components/WorkspaceArt';
 import { useAuth } from '../context/auth-context';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,6 +28,7 @@ export default function Login() {
                 <span className="eyebrow login-eyebrow"><span className="status-dot" /> KHÔNG GIAN ĐÀO TẠO SỐ</span>
                 <h1>Một cổng kết nối.<br /><span>Trọn hành trình<br />học tập.</span></h1>
                 <p>Quản lý đào tạo, đăng ký học phần và theo dõi kết quả học tập trong một không gian thống nhất.</p>
+                <WorkspaceArt compact />
                 <div className="login-journey" aria-label="Các chức năng đào tạo">
                     <div><span className="journey-icon"><i className="bi bi-journal-plus" /></span><span><strong>Chủ động kế hoạch học tập</strong><small>Đăng ký học phần & thời khóa biểu</small></span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div>
                     <div><span className="journey-icon"><i className="bi bi-bar-chart" /></span><span><strong>Theo dõi từng bước tiến</strong><small>Bảng điểm & kết quả tích lũy</small></span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div>

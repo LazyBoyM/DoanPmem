@@ -1,129 +1,103 @@
-# HỆ THỐNG QUẢN LÝ ĐÀO TẠO VÀ ĐĂNG KÝ HỌC PHẦN (EDUPORTAL)
+# EduPortal
 
-Hệ thống Web ứng dụng công nghệ hiện đại phục vụ công tác quản lý đào tạo, phân quyền người dùng, mở lớp học phần, đăng ký tín chỉ trực tuyến, tính điểm GPA/CPA và thống kê báo cáo theo quy chế tín chỉ đại học.
+Hệ thống quản lý đào tạo, đăng ký học phần và theo dõi kết quả học tập cho ADMIN, LECTURER và STUDENT.
 
----
+## Chức năng và nơi sử dụng
 
-## 🌟 Công Nghệ Sử Dụng (Tech Stack)
+| Vai trò | Chức năng | Vị trí trên giao diện |
+| --- | --- | --- |
+| Admin | Quản lý tài khoản, hồ sơ, môn, học kỳ, đợt đăng ký và lớp | Menu quản lý đào tạo và hệ thống |
+| Admin | Xem hồ sơ, GPA, điểm, tín chỉ; chuyển sang sửa hồ sơ | Sinh viên → nút mắt → Thông tin sinh viên / Điểm & tín chỉ |
+| Admin | Nhập, khóa/mở khóa điểm và xuất bảng điểm lớp | Nhập & khóa điểm |
+| Giảng viên | Nhập điểm và khóa điểm lớp phụ trách | Nhập & khóa điểm |
+| Giảng viên | Xem kết quả toàn khóa của sinh viên thuộc lớp phụ trách, nhập thi lại ở lớp mình | Theo dõi sinh viên |
+| Giảng viên | Xem lịch các lớp được phân công | Lịch giảng dạy |
+| Sinh viên | Đăng ký/hủy lớp; xem lịch và kết quả | Đăng ký học phần / Thời khóa biểu / Kết quả & thi lại |
+| Sinh viên | Đăng ký thi lại khi đủ điều kiện | Kết quả & thi lại → Đăng ký thi lại |
 
-### Frontend (Client)
-- **Framework & Core:** React 19, Vite, React Router DOM v7
-- **Giao diện & Styling:** Bootstrap 5, Bootstrap Icons, Vanilla CSS Design System (Glassmorphism, Dark/Light palettes, Micro-animations)
-- **HTTP Client:** Axios với Request/Response Interceptors tự động đính kèm JWT Token
-- **Linter & Code Quality:** Oxlint
+Admin nhập lịch thủ công khi **Lớp học phần → Mở lớp học phần mới**: thứ, tiết bắt đầu, số tiết, phòng và khoảng tuần. Hệ thống kiểm tra trùng phòng/lịch giảng viên rồi hiển thị thời khóa biểu theo các lớp sinh viên đã đăng ký. Chưa có thuật toán tự chọn giờ/phòng hoặc trang thời khóa biểu tổng hợp cho admin.
 
-### Backend (Server)
-- **Nền tảng:** Node.js, Express.js
-- **Xác thực & Bảo mật:** JSON Web Token (JWT), Bcrypt password hashing, CORS
-- **Cơ sở dữ liệu:** MySQL (kết nối qua `mysql2/promise`), hỗ trợ tự động chuyển sang chế độ In-Memory Mock Database nếu chưa cài MySQL.
-- **Báo cáo & Xuất dữ liệu:** Thư viện `xlsx` xuất báo cáo bảng điểm và danh sách sinh viên chuẩn Excel.
+Thông tin chương trình đào tạo có API xem/tạo và được dùng trong hồ sơ, nhưng chưa có giao diện quản lý chương trình riêng hoặc bảng liên kết khung môn học theo chương trình.
 
----
+## Công nghệ và cấu trúc
 
-## 📋 12 Chức Năng Cốt Lõi Của Hệ Thống
+- Frontend: React, Vite, React Router, Bootstrap/React Bootstrap, Axios; CSS dùng chung tại `client/src/index.css`.
+- Backend: Node.js, Express, MySQL/mysql2, bcryptjs, JWT và xlsx.
+- `client/src/pages`: trang theo vai trò; `components`: giao diện dùng chung; `hooks/useAcademicReport.js`: tải bảng điểm, hủy request cũ và thử lại.
+- `server/src/controllers`: nghiệp vụ API; `services`: giao dịch, lịch, GPA và tổng hợp lượt học; `middlewares`: phiên và quyền lớp.
+- `database`: 14 bảng theo thứ tự khóa ngoại, seed mẫu; `server/migrations`: nâng cấp database đang sử dụng.
+- `server/test`: kiểm thử API, nghiệp vụ, hợp đồng truy vấn SQL và triển khai.
 
-1. **Quản lý tài khoản & Phân quyền:** Phân quyền 3 vai trò (ADMIN, LECTURER, STUDENT). Ẩn tài khoản Admin, chặn Admin tự khóa tài khoản của chính mình.
-2. **Quản lý sinh viên & giảng viên:** Quản lý hồ sơ, lớp sinh hoạt, học vị, khoa/bộ môn, cấp lại mật khẩu.
-3. **Quản lý môn học:** Cấu hình số tín chỉ, tiết lý thuyết, tiết thực hành và điều kiện môn học tiên quyết (Prerequisites).
-4. **Quản lý chương trình đào tạo:** Khung chương trình theo ngành đào tạo, tổng số tín chỉ tích lũy (135 TC), thời gian đào tạo.
-5. **Quản lý năm học, học kỳ & đợt đăng ký:** Bật/Tắt công tắc đóng/mở cổng đăng ký học phần, thiết lập hạn mức tín chỉ tối thiểu (Min) và tối đa (Max).
-6. **Mở và quản lý lớp học phần:** Mở lớp HP, phân công giảng viên, giới hạn sĩ số, theo dõi số lượng sinh viên đã đăng ký.
-7. **Sinh viên đăng ký / hủy học phần:** Giao diện trực quan chọn lớp học phần và hủy học phần trong thời gian mở cổng.
-8. **Kiểm tra trùng lịch & Giới hạn tín chỉ:** Thuật toán kiểm tra xung đột thời gian (thứ trong tuần, tiết học) và chặn vượt số tín chỉ quy định trong một học kỳ.
-9. **Giảng viên nhập điểm & Khóa điểm:** Nhập điểm Chuyên cần (10%), Giữa kỳ (30%), Cuối kỳ (60%), tự động quy đổi sang thang điểm 10, thang điểm 4 và điểm chữ (A, B+, B, C+, C, D+, D, F), chức năng khóa điểm.
-10. **Sinh viên tra cứu kết quả học tập:** Bảng điểm chi tiết từng học kỳ và điểm trung bình tích lũy GPA.
-11. **Thời khóa biểu ma trận tuần:** Hiển thị thời khóa biểu dạng lưới 12 tiết từ Thứ 2 đến Chủ nhật cho cả Giảng viên và Sinh viên.
-12. **Thống kê, xuất danh sách & báo cáo:** Biểu đồ phân bổ phổ điểm toàn trường, xuất file Excel danh sách sinh viên và bảng điểm lớp học phần.
+## Chạy cục bộ
 
----
+Dùng Node.js 22.12 trở lên và MySQL 8.0 trở lên nếu chạy chế độ MySQL. Cài dependency trong `client` và `server` bằng `npm ci`.
 
-## 🚀 Hướng Dẫn Cài Đặt Và Khởi Chạy
+Backend:
 
-### 1. Yêu cầu môi trường
-- **Node.js:** phiên bản 22.12+ (đã kiểm tra trên Node 26).
-- **MySQL:** phiên bản 8.0+ (Tùy chọn: nếu máy chưa cài MySQL, hệ thống sẽ tự động dùng Mock DB có sẵn đầy đủ dữ liệu demo).
-
-### 2. Cài đặt CSDL (Nếu dùng MySQL)
-- Mở MySQL Workbench / phpMyAdmin, tạo CSDL và import file:
-  ```bash
-  schema.sql
-  ```
-
-### 3. Cài đặt & Khởi chạy Backend Server
-```bash
+```powershell
 cd server
-npm install
+Copy-Item .env.example .env
+# Sửa .env: DB_MODE=mock để demo hoặc DB_MODE=mysql cùng cấu hình database.
 npm start
 ```
-*Backend sẽ lắng nghe tại: `http://localhost:5000`*
 
-### 4. Cài đặt & Khởi chạy Frontend Client
-```bash
+Frontend:
+
+```powershell
 cd client
-npm install
 npm run dev
 ```
-*Frontend sẽ chạy tại: `http://localhost:5173`*
 
----
+Vite chuyển `/api` tới backend cổng 5000. Sau `npm run build` tại client, backend có thể phục vụ cả API và `client/dist` trên một cổng. Build frontend tự động chọn URL `/api`; có thể cấu hình `VITE_API_BASE_URL` khi cần.
 
-## 🔑 Tài Khoản Thử Nghiệm (Demo Accounts)
+Tài khoản mẫu có mật khẩu `123456`: `admin`, `gv_thuan`, `gv_nam`, `74dctt25001`–`74dctt25004`. Đây là dữ liệu demo. Nút đăng nhập nhanh chỉ hiện trong môi trường phát triển khi `VITE_ENABLE_DEMO_LOGIN=true`.
 
-| Phân quyền | Tên đăng nhập | Mật khẩu mặc định | Ghi chú |
-| :--- | :--- | :---: | :--- |
-| **Quản trị viên (Admin)** | `admin` | `123456` | Toàn quyền quản trị hệ thống |
-| **Giảng viên** | `gv_thuan` | `123456` | ThS. Phạm Thị Thuận (Khoa CNTT) |
-| **Giảng viên** | `gv_nam` | `123456` | TS. Nguyễn Văn Nam (Khoa CNTT) |
-| **Sinh viên** | `74dctt25001` | `123456` | Lê Văn Hiệp (Lớp 2DCTT745) |
-| **Sinh viên** | `74dctt25002` | `123456` | Bùi Đức Huy (Lớp 2DCTT745) |
+## Database mới và nâng cấp
 
-*Đăng nhập nhanh chỉ bật trong môi trường phát triển khi client đặt `VITE_ENABLE_DEMO_LOGIN=true`; bản production luôn ẩn.*
+- Database trống: cấu hình backend rồi chạy `npm run db:setup` trong `server`, hoặc nhập `database/tables.sql` trước `database/seed.sql`.
+- Database có dữ liệu: sao lưu rồi chạy `npm run migrate` trong `server`. Không nhập lại seed/setup vào dữ liệu hiện có.
+- Migration 003 thêm `resit_attempts`, lưu một lần thi lại theo lượt đăng ký, điểm ban đầu và người nhập kết quả.
+- `DB_MODE=mock` dùng bộ nhớ và mất thay đổi khi khởi động lại. Bộ mock và seed SQL là hai bộ mẫu khác nhau; không dùng ảnh mock để chứng minh dữ liệu SQL đã được nhập hoặc mọi dữ liệu mẫu hợp lệ.
 
+## Quy tắc nghiệp vụ
 
-## Cấu hình và nâng cấp database
+- Đăng ký kiểm tra lớp mở, sĩ số, đợt mở, trùng môn trong kỳ, tiên quyết, tín chỉ tối đa và trùng thứ/tiết/tuần. Mức tín chỉ tối thiểu chỉ là mục tiêu hiển thị.
+- Đăng ký/hủy cập nhật sĩ số trong giao dịch. Hủy chỉ trong đợt mở và khi chưa có điểm hoặc khóa điểm.
+- MySQL khóa các bản ghi cần thiết và thử lại deadlock/lock timeout tối đa ba lần. Mock xử lý ghi tuần tự và chỉ công bố snapshot khi thành công.
+- Khóa điểm áp dụng cả lớp, kể cả lớp trống. Lớp khóa không nhận đăng ký mới. Lớp đã có điểm/khóa điểm không được hủy.
+- Điểm tổng kết = 10% chuyên cần + 30% giữa kỳ + 60% cuối kỳ; làm tròn một chữ số thập phân. Thiếu thành phần thì tổng kết là NULL.
+- GPA dùng điểm cao nhất mỗi môn, có trọng số tín chỉ. Tín chỉ đạt tính một lần cho môn có điểm tổng kết từ 4,0.
 
-Sao chép `server/.env.example` thành `server/.env`, điền thông tin MySQL. Database mới import `schema.sql`. Database đang dùng schema cũ cần sao lưu và chạy trong thư mục `server`:
+### Thi lại theo quy tắc của đồ án
 
-```bash
-npm run migrate
-```
+Quy tắc này phục vụ đồ án, không phải quy chế chính thức của trường:
 
-Migration 001 chỉ sửa hash mẫu cũ; migration 002 bổ sung khóa điểm cấp lớp và chuẩn hóa một học kỳ đang hoạt động. Script ghi nhận migration đã chạy, không thay mật khẩu riêng. Không import lại toàn bộ schema vào database đang có dữ liệu.
+1. Có đủ ba điểm thành phần và tổng kết dưới 4,0; chưa có lần học tiếp theo/lần đạt khác → được đăng ký thi lại một lần cho mỗi lượt học.
+2. Sinh viên đăng ký, hệ thống lưu yêu cầu `REQUESTED` và điểm ban đầu.
+3. Admin hoặc giảng viên phụ trách nhập điểm 0–10; bảng điểm phải mở khóa. Giảng viên không nhập thi lại của lớp khác.
+4. Giữ điểm cuối kỳ cao hơn giữa điểm ban đầu, điểm cuối kỳ hiện tại và điểm thi lại; tính lại tổng kết, chuyển yêu cầu thành `COMPLETED`. GPA/tín chỉ được tính từ kết quả cập nhật.
+5. Sau thi lại vẫn dưới 4,0 thì hướng dẫn đăng ký học lại ở học kỳ khác; vẫn phải đáp ứng các điều kiện đăng ký thông thường.
 
-Dùng `DB_MODE=mock` cho demo cục bộ; dữ liệu mock mất khi khởi động lại. Dùng `DB_MODE=mysql` để buộc kết nối MySQL. Production phải đặt `NODE_ENV=production`, JWT_SECRET riêng tối thiểu 32 ký tự và dùng MySQL; lỗi kết nối sẽ dừng khởi động, không chuyển sang mock.
-
-Frontend mặc định gọi `/api`, Vite proxy đến backend cổng 5000. Có thể cấu hình `VITE_API_BASE_URL` trong `client/.env` trước khi build nếu API ở địa chỉ khác. Chạy `npm run build` trong `client`, sau đó `npm start` trong `server`: Express phục vụ `client/dist` và hỗ trợ tải lại URL của SPA.
-
-## Quy tắc nghiệp vụ đã thống nhất
-
-- Học kỳ được chọn chung trên giao diện; thời hạn và giới hạn tín chỉ lấy từ đợt đăng ký. Mức tối thiểu dùng để hiển thị mục tiêu; mức tối đa chặn đăng ký vượt giới hạn.
-- Hủy đăng ký chỉ trong đợt mở, khi chưa có điểm hoặc khóa điểm. Đăng ký/hủy cập nhật sĩ số trong transaction.
-- Khóa điểm áp dụng cả lớp, kể cả lớp trống; lớp đã khóa không nhận đăng ký mới.
-- Lịch kiểm tra cả thứ, tiết và khoảng tuần; không cho trùng phòng hoặc giảng viên trong cùng học kỳ.
-- GPA tích lũy chọn điểm cao nhất mỗi môn, chỉ tính tín chỉ đạt một lần; tổng tín chỉ yêu cầu lấy từ chương trình đào tạo.
-- Hủy lớp là trạng thái cuối, không áp dụng cho lớp đã có điểm/khóa điểm; các đăng ký và lịch liên quan được xử lý cùng transaction.
-- Tạo tài khoản sinh viên/giảng viên thông qua hồ sơ tương ứng. Tài khoản cũ chưa có hồ sơ có thể liên kết bằng mã trùng tên đăng nhập và đúng vai trò.
+Kết quả thi lại lưu điểm cuối kỳ/tổng kết ban đầu, điểm thi lại, thời gian yêu cầu, người nhập và thời gian nhập. API thi lại không cho nhập lần hai. Chưa có xếp lịch thi, lệ phí hoặc quy trình phê duyệt thi lại riêng.
 
 ## Kiểm tra
 
-Trong `server`: `npm test`. Trong `client`: `npm run lint` và `npm run build`.
-
-
-### Database cloud và Vercel
-
-Cấu hình biến môi trường của backend trên Vercel:
-
-```dotenv
-DB_MODE=mysql
-USE_MOCK_IF_NO_DB=false
-DB_SSL=true
-DB_CONNECTION_LIMIT=2
+```powershell
+# server
+npm test
+# client
+npm run lint
+npm run build
 ```
 
-Đặt `JWT_SECRET` riêng ít nhất 32 ký tự và `DATABASE_URL` theo thông tin nhà cung cấp, hoặc dùng bộ `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`. Khi có cả hai, URL được ưu tiên; ký tự đặc biệt trong username/password của URL phải được percent-encode. Không thêm query options vào URL; dùng các biến `DB_*` để cấu hình.
+Bộ backend có 48 kiểm thử. Các kiểm thử MySQL dùng kết nối giả lập để kiểm tra hợp đồng truy vấn; không thay thế kiểm thử trên MySQL thực hoặc kiểm thử tải. Mọi thay đổi chức năng cần chạy lại các kiểm tra phù hợp.
 
-Backend và `npm run migrate` dùng chung cấu hình kết nối, SSL và múi giờ. Nếu dịch vụ cấp CA riêng, đặt nội dung PEM trong `DB_SSL_CA` hoặc đường dẫn file trong `DB_SSL_CA_PATH`. Production/Vercel bắt buộc TLS và xác minh chứng chỉ; không tắt xác minh để né lỗi kết nối. Không đưa thông tin DB vào biến frontend `VITE_*`.
+## Triển khai
 
-API trả HTTP 503 khi khởi tạo DB/cấu hình production thất bại, không phục vụ dữ liệu mock. Các request khởi động đồng thời dùng chung một lần tạo pool; pool khởi tạo lỗi được đóng để lần sau thử lại. Giới hạn 2 kết nối là cho mỗi instance Vercel, không phải toàn deployment.
+Backend production/Vercel yêu cầu MySQL, JWT_SECRET riêng ít nhất 32 ký tự, TLS và xác minh chứng chỉ. Lỗi cấu hình/kết nối không được thay bằng dữ liệu mock.
 
-Các truy vấn danh mục không tự động khóa cả bảng. Đăng ký giữ khóa trên sinh viên/lớp và các bản ghi liên quan; dữ liệu lớp, lịch và điểm phục vụ tính toán được truy vấn theo ID. Kích hoạt học kỳ vẫn khóa tập học kỳ vì thao tác này phải bảo đảm chỉ một kỳ đang hoạt động.
+Dùng `DATABASE_URL` hoặc `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`; URL được ưu tiên. Tài khoản/mật khẩu trong URL cần percent-encode, không thêm query options. Đặt `DB_MODE=mysql`, `USE_MOCK_IF_NO_DB=false`, `DB_SSL=true`; có thể đặt `DB_CONNECTION_LIMIT=2` cho mỗi instance Vercel. CA riêng dùng `DB_SSL_CA` hoặc `DB_SSL_CA_PATH`.
+
+Thông tin DB chỉ đặt ở backend, không đặt trong `VITE_*`. Chạy migration trên database trước khi dùng bản có thi lại. Pool được dùng chung cho các request khởi động đồng thời; API trả 503 nếu khởi tạo thất bại.
+
+`.env`, `node_modules`, `dist`, log và dữ liệu kiểm tra cục bộ không được commit. Các migration, schema, seed, lockfile, test và hướng dẫn là thành phần cần lưu trong repository.

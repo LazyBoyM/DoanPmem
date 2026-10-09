@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const tables = new Set(['users', 'departments', 'programs', 'students', 'lecturers', 'subjects', 'prerequisites', 'semesters', 'registration_periods', 'course_classes', 'class_schedules', 'enrollments', 'grades']);
+const tables = new Set(['users', 'departments', 'programs', 'students', 'lecturers', 'subjects', 'prerequisites', 'semesters', 'registration_periods', 'course_classes', 'class_schedules', 'enrollments', 'grades', 'resit_attempts']);
 const counters = new Map();
 let mockQueue = Promise.resolve();
 
@@ -115,7 +115,7 @@ function endpoint(work, writing = false) {
         } catch (error) {
             const status = error.status || (['ER_DUP_ENTRY', 'ER_ROW_IS_REFERENCED_2', 'ER_NO_REFERENCED_ROW_2'].includes(error.code) ? 409 : 500);
             if (status === 500) console.error(error);
-            res.status(status).json({ success: false, message: error.status ? error.message : status === 409 ? 'Dá»¯ liá»‡u bá»‹ trÃ¹ng hoáº·c Ä‘ang Ä‘Æ°á»£c sá»­ dá»¥ng.' : 'KhÃ´ng thá»ƒ xá»­ lÃ½ yÃªu cáº§u. Vui lÃ²ng thá»­ láº¡i.' });
+            res.status(status).json({ success: false, message: error.status ? error.message : status === 409 ? 'Dữ liệu bị trùng hoặc đang được sử dụng.' : 'Không thể xử lý yêu cầu. Vui lòng thử lại.' });
         }
     };
 }

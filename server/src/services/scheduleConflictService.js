@@ -59,7 +59,7 @@ function convertGrade(attendance, midterm, final) {
         return { total10: null, total4: null, letter: null };
     }
 
-    const total10 = parseFloat((attendance * 0.1 + midterm * 0.3 + final * 0.6).toFixed(1));
+    const total10 = Math.round((attendance * 0.1 + midterm * 0.3 + final * 0.6) * 10 + 1e-9) / 10;
     let total4 = 0.0;
     let letter = 'F';
 

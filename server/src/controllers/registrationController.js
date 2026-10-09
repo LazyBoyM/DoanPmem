@@ -1,6 +1,7 @@
 const { endpoint, fail } = require('../services/store');
-const { integer, requireRow, classesWithDetails, enrollmentsWithDetails, isPeriodOpen, hasGrade, gradeSummary } = require('../services/academic');
+const { integer, requireRow, classesWithDetails, enrollmentsWithDetails, isPeriodOpen, hasGrade } = require('../services/academic');
 const { checkScheduleConflicts } = require('../services/scheduleConflictService');
+const { transcript } = require('../services/transcript');
 const semesterFilter = (req, rows) => req.query?.semester_id ? rows.filter(c => c.semester_id === integer(req.query.semester_id, 'Học kỳ')) : rows;
 const getContext = endpoint(async (req, store) => {
     const semesters = (await store.list('semesters')).sort((a,b) => b.id-a.id);
@@ -17,11 +18,7 @@ const getMyEnrollments = endpoint(async (req, store) => {
     return { data: semesterFilter(req, await enrollmentsWithDetails(store, req.user.student_id)) };
 });
 const getGrades = endpoint(async (req, store) => {
-    const student = await requireRow(store, 'students', req.user.student_id, 'Sinh viên');
-    const program = await requireRow(store, 'programs', student.program_id, 'Chương trình');
-    const all = await enrollmentsWithDetails(store, student.id);
-    const selected = semesterFilter(req, all);
-    return { data: selected, summary: gradeSummary(selected), cumulative: gradeSummary(all), required_credits: Number(program.total_credits), policy: 'Điểm cao nhất mỗi môn; tín chỉ tích lũy tính một lần khi đạt từ 4.0.' };
+    return transcript(store, req.user.student_id, req.query.semester_id ? integer(req.query.semester_id, 'Học kỳ') : null);
 });
 const registerClass = endpoint(async (req, store) => {
     const student = await requireRow(store, 'students', req.user.student_id, 'Sinh viên');

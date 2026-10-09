@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAcademic } from '../../context/academic-context';
 import SemesterSelect from '../../components/SemesterSelect';
 import axiosClient from '../../api/axiosClient';
@@ -10,6 +10,8 @@ const LecturerDashboard = () => {
     const [selectedClass, setSelectedClass] = useState('');
     const [view, setView] = useState({ classId: '', students: [], course: null });
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState(null);
+    const [saving, setSaving] = useState(false);
     const classes = classResult.semesterId === semesterId ? classResult.data : [];
     const validSelection = classes.some(c => String(c.id) === String(selectedClass));
     const students = validSelection && view.classId === String(selectedClass) ? view.students : [];
@@ -39,6 +41,8 @@ const LecturerDashboard = () => {
     };
 
     const handleSaveGrade = async (student) => {
+        if (saving) return;
+        setSaving(true); setNotice(null);
         try {
             const res = await axiosClient.post('/lecturer/update-grades', {
                 enrollment_id: student.enrollment_id,
@@ -48,12 +52,12 @@ const LecturerDashboard = () => {
             });
 
             if (res.success) {
-                alert('Lưu kết quả học tập thành công!');
+                setNotice({ type: 'success', text: `Đã lưu điểm của ${student.full_name}. Tổng kết đã được tính lại.` });
                 fetchStudents(selectedClass); // Reload to get calculated total scores
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi lưu điểm');
-        }
+            setNotice({ type: 'danger', text: err.response?.data?.message || 'Không lưu được điểm.' });
+        } finally { setSaving(false); }
     };
 
     const handleExport = async () => {
@@ -61,7 +65,7 @@ const LecturerDashboard = () => {
         try {
             await downloadFile(`/reports/export-class-excel/${selectedClass}`, `Danh_sach_lop_${selectedClass}.xlsx`);
         } catch {
-            alert('Không thể xuất danh sách lớp.');
+            setNotice({ type: 'danger', text: 'Không thể xuất danh sách lớp.' });
         }
     };
 
@@ -73,11 +77,11 @@ const LecturerDashboard = () => {
         try {
             const res = await axiosClient.put(`/lecturer/lock-grades/${selectedClass}`, { is_locked: willLock ? 1 : 0 });
             if (res.success) {
-                alert(res.message);
+                setNotice({ type: 'success', text: res.message });
                 fetchStudents(selectedClass);
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi khóa điểm');
+            setNotice({ type: 'danger', text: err.response?.data?.message || 'Không đổi được trạng thái khóa.' });
         }
     };
 
@@ -86,19 +90,20 @@ const LecturerDashboard = () => {
     return (
         <div className="lecturer-pane">
             <SemesterSelect />
+            {notice && <div className={`alert alert-${notice.type}`} role="status">{notice.text}</div>}
             {error && <div className="alert alert-danger" role="alert">{error}</div>}
             <div className="card shadow-sm border-0 p-4 mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                     <div>
                         <h4 className="fw-bold mb-1"><i className="bi bi-journal-check text-warning me-2"></i>Quản Lý Lớp & Nhập Kết Quả Học Tập</h4>
-                        <p className="text-muted small mb-0">Hệ thống tự động tính điểm Hệ 10, Hệ 4 và Điểm chữ tức thời theo công thức đào tạo tín chỉ</p>
+                        <p className="text-muted small mb-0">Hệ thống tự động tính điểm Hệ 10, Hệ 4 và Điểm chữ sau khi lưu, theo tỷ trọng 10% chuyên cần, 30% giữa kỳ, 60% cuối kỳ</p>
                     </div>
                     <div className="d-flex flex-wrap gap-2">
-                        <button className={`btn ${isLocked ? 'btn-outline-warning' : 'btn-outline-danger'}`} disabled={!course} onClick={handleToggleLock}>
+                        <button className={`btn ${isLocked ? 'btn-outline-warning' : 'btn-outline-danger'}`} disabled={!course || saving} onClick={handleToggleLock}>
                             <i className={`bi ${isLocked ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i>
                             {isLocked ? 'Mở Khóa Bảng Điểm' : 'Khóa Bảng Điểm'}
                         </button>
-                        <button className="btn btn-success" disabled={!course} onClick={handleExport}>
+                        <button className="btn btn-success" disabled={!course || saving} onClick={handleExport}>
                             <i className="bi bi-file-earmark-excel me-1"></i> Xuất File Excel Lớp
                         </button>
                     </div>
@@ -110,7 +115,7 @@ const LecturerDashboard = () => {
                         <select
                             className="form-select form-select-lg"
                             value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
+                            onChange={(e) => { setSelectedClass(e.target.value); setNotice(null); }}
                         >
                             {classes.map(c => (
                                 <option key={c.id} value={c.id}>{c.class_code} - {c.subject_name}</option>
@@ -176,7 +181,7 @@ const LecturerDashboard = () => {
                                     <td>
                                         <button
                                             className={`btn btn-primary btn-sm px-3 ${isLocked ? 'disabled' : ''}`}
-                                            onClick={() => handleSaveGrade(s)}
+                                            disabled={saving} onClick={() => handleSaveGrade(s)}
                                         >
                                             <i className="bi bi-floppy me-1"></i> Lưu
                                         </button>

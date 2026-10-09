@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
 

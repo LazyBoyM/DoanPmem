@@ -12,7 +12,7 @@ async function setup(connection, root = path.join(__dirname, '../../database'), 
     const ddl = statements(await fs.readFile(path.join(root, 'tables.sql'), 'utf8'));
     const seed = statements(await fs.readFile(path.join(root, 'seed.sql'), 'utf8'));
     const tables = ddl.map(sql => /CREATE TABLE IF NOT EXISTS `(\w+)`/.exec(sql)?.[1]);
-    if (tables.length !== 13 || tables.some(t => !t)) throw new Error('Invalid table package');
+    if (tables.length !== 14 || tables.some(t => !t)) throw new Error('Invalid table package');
     const [db] = await connection.query('SELECT DATABASE() AS name');
     if (!db[0]?.name || ['sys', 'mysql', 'information_schema', 'performance_schema'].includes(db[0].name)) {
         throw new Error('Select an application database, for example DB_NAME=test.');
@@ -29,7 +29,7 @@ async function setup(connection, root = path.join(__dirname, '../../database'), 
             const [columns] = await connection.query('SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [tables[i]]);
             const required = [...ddl[i].matchAll(/^\s*`(\w+)`/gm)].map(m => m[1]);
             if (required.some(name => !columns.some(c => c.name === name))) throw new Error('Existing table has an incompatible schema; use a new empty database.');
-            log(`Table ${i + 1}/13: ${tables[i]}`);
+            log(`Table ${i + 1}/${tables.length}: ${tables[i]}`);
         } catch (error) { throw new Error(`Create ${tables[i]} failed: ${error.code || error.message}`); }
     }
     await connection.beginTransaction();
@@ -41,7 +41,7 @@ async function setup(connection, root = path.join(__dirname, '../../database'), 
         const [counts] = await connection.query('SELECT COUNT(*) AS count FROM grades');
         if (Number(counts[0].count) !== 2) throw new Error('Seed verification failed');
         await connection.commit();
-        log('Ready: 13 tables and demo data imported.');
+        log('Ready: 14 tables and demo data imported.');
     } catch (error) {
         await connection.rollback();
         throw error;

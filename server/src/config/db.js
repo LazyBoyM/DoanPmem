@@ -10,6 +10,7 @@ let isConnected = false;
 
 // Mock in-memory database fallback
 const mockDb = {
+    resit_attempts: [],
     users: [
         { id: 1, username: 'admin', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'admin@edu.vn', role: 'ADMIN', status: 1 },
         { id: 2, username: 'gv_thuan', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'thuanpt@edu.vn', role: 'LECTURER', status: 1 },

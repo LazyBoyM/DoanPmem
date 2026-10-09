@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 import { useAuth } from '../../context/auth-context';
+import WorkspaceArt from '../../components/WorkspaceArt';
 
 const formatNumber = value => Number(value || 0).toLocaleString('vi-VN');
 const gradeGroups = [
@@ -43,12 +44,12 @@ export default function AdminDashboard() {
         { label: 'Lớp học phần', value: stats?.total_classes, icon: 'bi-collection', note: 'Tổng số lớp trong hệ thống', path: '/admin/classes', color: 'violet' },
     ];
     const actions = [
-        { path: '/admin/students', icon: 'bi-person-plus', label: 'Hồ sơ sinh viên', note: 'Tra cứu & cập nhật hồ sơ' },
+        { path: '/admin/students', icon: 'bi-person-vcard', label: 'Hồ sơ sinh viên', note: 'Xem thông tin, điểm & tín chỉ tại danh sách' },
         { path: '/admin/classes', icon: 'bi-collection', label: 'Lớp học phần', note: 'Mở lớp & phân công giảng dạy' },
         { path: '/admin/semesters', icon: 'bi-calendar3', label: 'Đợt đăng ký', note: 'Thiết lập học kỳ & thời gian' },
     ];
     return <div className="admin-pane dashboard-page">
-        <div className="dashboard-heading"><div><span className="eyebrow">TỔNG QUAN ĐÀO TẠO</span><h1>Xin chào, {user.full_name || user.username}<span className="welcome-dot">.</span></h1><p>Nắm bắt hoạt động đào tạo và quản lý công việc trong ngày.</p></div><button className="btn btn-primary" onClick={exportStudents} disabled={downloading}><i className={`bi ${downloading ? 'bi-hourglass-split' : 'bi-download'}`} />{downloading ? 'Đang xuất…' : 'Xuất danh sách sinh viên'}</button></div>
+        <div className="dashboard-heading workspace-dashboard"><div className="workspace-copy"><span className="eyebrow"><span className="hero-dot" />KHÔNG GIAN QUẢN TRỊ</span><p className="dashboard-greeting">Xin chào, {user.full_name || user.username}.</p><h1>Tổng quan đào tạo.<br /><span>Sinh viên & lớp học.</span></h1><p>Nắm bắt kết quả, theo dõi sinh viên và điều phối lớp học trong một không gian.</p><div className="hero-actions"><Link className="btn btn-primary" to="/admin/students">Quản lý sinh viên<i className="bi bi-arrow-up-right" /></Link><button className="btn btn-outline-primary" onClick={exportStudents} disabled={downloading}><i className={`bi ${downloading ? 'bi-hourglass-split' : 'bi-download'}`} />{downloading ? 'Đang xuất…' : 'Xuất danh sách'}</button></div></div><WorkspaceArt /></div>
         {error && <div className="alert alert-danger d-flex flex-wrap align-items-center gap-2" role="alert"><span>{error}</span><button className="btn btn-outline-danger btn-sm ms-auto" onClick={() => setRefreshKey(previous => previous + 1)}>Thử lại</button></div>}
         {downloadError && <div className="alert alert-danger" role="alert">{downloadError}</div>}
         <div className="dashboard-kpis">{cards.map(card => <Link to={card.path} key={card.label} className="metric-card"><div className="metric-top"><span>{card.label}</span><span className={`metric-icon ${card.color}`}><i className={`bi ${card.icon}`} /></span></div><strong className="metric-value">{stats ? formatNumber(card.value) : '—'}</strong><div className="metric-bottom"><span>{card.note}</span><i className="bi bi-arrow-up-right" aria-hidden="true" /></div></Link>)}</div>

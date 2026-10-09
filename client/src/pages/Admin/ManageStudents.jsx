@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import StudentDetails from '../../components/StudentDetails';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 
 const ManageStudents = () => {
     const [students, setStudents] = useState([]);
+    const [detailStudent, setDetailStudent] = useState(null);
     const [programs, setPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -294,33 +296,28 @@ const ManageStudents = () => {
                                         </td>
                                         <td>
                                             <div className="d-flex justify-content-center gap-1">
-                                                <button
-                                                    className="btn btn-outline-primary btn-sm px-2 py-1"
-                                                    title="Chỉnh sửa thông tin"
-                                                    onClick={() => handleOpenEdit(st)}
-                                                >
-                                                    <i className="bi bi-pencil-square"></i>
-                                                </button>
+                                                <button className="btn btn-outline-info btn-sm px-2 py-1" title="Xem thông tin sinh viên" aria-label={`Xem thông tin ${st.full_name}`} onClick={() => setDetailStudent(st)}><i className="bi bi-eye" aria-hidden="true" /></button>
+
                                                 <button
                                                     className="btn btn-outline-warning btn-sm px-2 py-1"
                                                     title="Đặt lại mật khẩu về 123456"
                                                     onClick={() => handleResetPassword(st.user_id, st.student_code)}
                                                 >
-                                                    <i className="bi bi-key"></i>
+                                                    <i className="bi bi-key"></i> Mật khẩu
                                                 </button>
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${st.status === 1 ? 'btn-outline-secondary' : 'btn-outline-success'}`}
                                                     title={st.status === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                                     onClick={() => handleToggleStatus(st.user_id, st.status)}
                                                 >
-                                                    <i className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                                    <i className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i> {st.status === 1 ? 'Khóa' : 'Mở khóa'}
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-danger btn-sm px-2 py-1"
                                                     title="Xóa hồ sơ sinh viên"
                                                     onClick={() => handleDelete(st.id, st.student_code, st.full_name)}
                                                 >
-                                                    <i className="bi bi-trash"></i>
+                                                    <i className="bi bi-trash"></i> Xóa
                                                 </button>
                                             </div>
                                         </td>
@@ -332,6 +329,7 @@ const ManageStudents = () => {
                 </div>
             </div>
 
+            {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
             {/* Modal Thêm/Sửa */}
             {showModal && (
                 <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

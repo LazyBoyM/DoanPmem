@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth-context';
@@ -17,6 +17,7 @@ const LecturerDashboard = lazy(() => import('./pages/Lecturer/Dashboard'));
 const LecturerTimetable = lazy(() => import('./pages/Lecturer/Timetable'));
 const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
 const StudentTimetable = lazy(() => import('./pages/Student/Timetable'));
+const AcademicStudents = lazy(() => import('./pages/AcademicStudents'));
 const StudentGrades = lazy(() => import('./pages/Student/Grades'));
 
 const AppRoutes = () => {
@@ -42,6 +43,8 @@ const AppRoutes = () => {
                     {/* Admin Routes */}
                     <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                         <Route path="/admin" element={<AdminDashboard />} />
+                        <Route path="/admin/academic" element={<Navigate to="/admin/students" replace />} />
+                        <Route path="/admin/grades" element={<LecturerDashboard />} />
                         <Route path="/admin/users" element={<ManageUsers />} />
                         <Route path="/admin/students" element={<ManageStudents />} />
                         <Route path="/admin/lecturers" element={<ManageLecturers />} />
@@ -54,6 +57,7 @@ const AppRoutes = () => {
                     <Route element={<ProtectedRoute allowedRoles={['LECTURER', 'ADMIN']} />}>
                         <Route path="/lecturer" element={<Navigate to="/lecturer/grades" replace />} />
                         <Route path="/lecturer/grades" element={<LecturerDashboard />} />
+                        <Route path="/lecturer/academic" element={<AcademicStudents />} />
                         <Route path="/lecturer/timetable" element={<LecturerTimetable />} />
                     </Route>
 

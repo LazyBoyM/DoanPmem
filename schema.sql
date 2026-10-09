@@ -1,13 +1,4 @@
--- ==========================================================
--- HỆ THỐNG QUẢN LÝ ĐÀO TẠO VÀ ĐĂNG KÝ HỌC PHẦN
--- Chọn database test trong SQL Editor trước khi chạy.
--- Hệ QT CSDL: MySQL 8.0+
--- ==========================================================
-
--- Không đổi database tự động. Chạy toàn bộ file trong database đã chọn.
--- Khuyến nghị: cd server && npm run db:setup (đọc server/.env).
-
--- 1. Bảng tài khoản người dùng
+-- Chọn database test. Chạy toàn bộ 13 câu lệnh theo thứ tự.
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -19,7 +10,6 @@ CREATE TABLE IF NOT EXISTS `users` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. Bảng Khoa / Bộ môn
 CREATE TABLE IF NOT EXISTS `departments` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `department_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -29,7 +19,6 @@ CREATE TABLE IF NOT EXISTS `departments` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Bảng Chương trình đào tạo / Ngành
 CREATE TABLE IF NOT EXISTS `programs` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `program_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -41,7 +30,6 @@ CREATE TABLE IF NOT EXISTS `programs` (
     CONSTRAINT `fk_programs_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Bảng Giảng viên
 CREATE TABLE IF NOT EXISTS `lecturers` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL UNIQUE,
@@ -55,7 +43,6 @@ CREATE TABLE IF NOT EXISTS `lecturers` (
     CONSTRAINT `fk_lecturers_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Bảng Sinh viên
 CREATE TABLE IF NOT EXISTS `students` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL UNIQUE,
@@ -73,7 +60,6 @@ CREATE TABLE IF NOT EXISTS `students` (
     CONSTRAINT `fk_students_program` FOREIGN KEY (`program_id`) REFERENCES `programs` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Bảng Môn học / Học phần
 CREATE TABLE IF NOT EXISTS `subjects` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `subject_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -86,7 +72,6 @@ CREATE TABLE IF NOT EXISTS `subjects` (
     CONSTRAINT `fk_subjects_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Bảng Môn tiên quyết
 CREATE TABLE IF NOT EXISTS `prerequisites` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `subject_id` INT NOT NULL,
@@ -97,7 +82,6 @@ CREATE TABLE IF NOT EXISTS `prerequisites` (
     CONSTRAINT `uk_prerequisite` UNIQUE (`subject_id`, `prerequisite_subject_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Bảng Năm học & Học kỳ
 CREATE TABLE IF NOT EXISTS `semesters` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `semester_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -109,7 +93,6 @@ CREATE TABLE IF NOT EXISTS `semesters` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Bảng Đợt đăng ký tín chỉ
 CREATE TABLE IF NOT EXISTS `registration_periods` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `semester_id` INT NOT NULL,
@@ -122,7 +105,6 @@ CREATE TABLE IF NOT EXISTS `registration_periods` (
     CONSTRAINT `fk_reg_semester` FOREIGN KEY (`semester_id`) REFERENCES `semesters` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Bảng Lớp học phần
 CREATE TABLE IF NOT EXISTS `course_classes` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `class_code` VARCHAR(30) NOT NULL UNIQUE,
@@ -139,7 +121,6 @@ CREATE TABLE IF NOT EXISTS `course_classes` (
     CONSTRAINT `fk_classes_lecturer` FOREIGN KEY (`lecturer_id`) REFERENCES `lecturers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. Bảng Lịch học chi tiết (Thứ, Tiết, Phòng)
 CREATE TABLE IF NOT EXISTS `class_schedules` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `course_class_id` INT NOT NULL,
@@ -152,7 +133,6 @@ CREATE TABLE IF NOT EXISTS `class_schedules` (
     CONSTRAINT `fk_schedules_class` FOREIGN KEY (`course_class_id`) REFERENCES `course_classes` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. Bảng Đăng ký học phần của sinh viên
 CREATE TABLE IF NOT EXISTS `enrollments` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `student_id` INT NOT NULL,
@@ -164,7 +144,6 @@ CREATE TABLE IF NOT EXISTS `enrollments` (
     CONSTRAINT `uk_student_class` UNIQUE (`student_id`, `course_class_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. Bảng Điểm và Kết quả học tập
 CREATE TABLE IF NOT EXISTS `grades` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `enrollment_id` INT NOT NULL UNIQUE,
@@ -179,7 +158,21 @@ CREATE TABLE IF NOT EXISTS `grades` (
     CONSTRAINT `fk_grades_enrollment` FOREIGN KEY (`enrollment_id`) REFERENCES `enrollments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ==========================================================
+CREATE TABLE IF NOT EXISTS `resit_attempts` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `enrollment_id` INT NOT NULL UNIQUE,
+    `status` ENUM('REQUESTED', 'COMPLETED') NOT NULL DEFAULT 'REQUESTED',
+    `original_final_score` DECIMAL(4,2) NOT NULL,
+    `original_total_score` DECIMAL(4,2) NOT NULL,
+    `score` DECIMAL(4,2) NULL,
+    `requested_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `recorded_by` INT NULL,
+    `recorded_at` TIMESTAMP NULL,
+    CONSTRAINT `fk_resit_enrollment` FOREIGN KEY (`enrollment_id`) REFERENCES `enrollments` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_resit_recorder` FOREIGN KEY (`recorded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Chỉ chạy sau khi đủ 13 bảng. Chọn toàn bộ nội dung rồi Run.
 -- DỮ LIỆU MẪU (SEED DATA)
 -- Mật khẩu mặc định cho các tài khoản là: "123456"
 -- Hash bcrypt tương ứng: $2a$10$0yBOIkFePreY4k4Ds7/GjOyvJc4ujz8SWQ6J07yNhTay00tNoVMJu

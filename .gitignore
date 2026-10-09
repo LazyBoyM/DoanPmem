@@ -39,3 +39,8 @@ coverage/
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Local document review and browser captures
+.report-work/
+.playwright/
+test-results/

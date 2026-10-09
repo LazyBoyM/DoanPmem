@@ -4,11 +4,11 @@ import { useAuth } from '../context/auth-context';
 const menus = {
     ADMIN: [
         { title: 'Tổng quan', items: [['/admin', 'bi-grid-1x2', 'Bảng điều khiển']] },
-        { title: 'Quản lý đào tạo', items: [['/admin/students', 'bi-people', 'Sinh viên'], ['/admin/lecturers', 'bi-person-workspace', 'Giảng viên'], ['/admin/subjects', 'bi-journal-bookmark', 'Môn học'], ['/admin/classes', 'bi-collection', 'Lớp học phần'], ['/admin/semesters', 'bi-calendar3', 'Học kỳ & đăng ký']] },
+        { title: 'Quản lý đào tạo', items: [['/admin/students', 'bi-people', 'Sinh viên'], ['/admin/grades', 'bi-journal-check', 'Nhập & khóa điểm'], ['/admin/lecturers', 'bi-person-workspace', 'Giảng viên'], ['/admin/subjects', 'bi-journal-bookmark', 'Môn học'], ['/admin/classes', 'bi-collection', 'Lớp học phần'], ['/admin/semesters', 'bi-calendar3', 'Học kỳ & đăng ký']] },
         { title: 'Hệ thống', items: [['/admin/users', 'bi-shield-check', 'Tài khoản & phân quyền']] },
     ],
-    LECTURER: [{ title: 'Không gian giảng viên', items: [['/lecturer/grades', 'bi-journal-check', 'Lớp học & bảng điểm'], ['/lecturer/timetable', 'bi-calendar3', 'Lịch giảng dạy']] }],
-    STUDENT: [{ title: 'Không gian sinh viên', items: [['/student/registration', 'bi-journal-plus', 'Đăng ký học phần'], ['/student/timetable', 'bi-calendar3', 'Thời khóa biểu'], ['/student/grades', 'bi-bar-chart', 'Kết quả học tập']] }],
+    LECTURER: [{ title: 'Không gian giảng viên', items: [['/lecturer/grades', 'bi-journal-check', 'Nhập & khóa điểm'], ['/lecturer/academic', 'bi-graph-up', 'Theo dõi sinh viên'], ['/lecturer/timetable', 'bi-calendar3', 'Lịch giảng dạy']] }],
+    STUDENT: [{ title: 'Không gian sinh viên', items: [['/student/registration', 'bi-journal-plus', 'Đăng ký học phần'], ['/student/timetable', 'bi-calendar3', 'Thời khóa biểu'], ['/student/grades', 'bi-bar-chart', 'Kết quả & thi lại']] }],
 };
 const roles = { ADMIN: 'Quản trị viên', LECTURER: 'Giảng viên', STUDENT: 'Sinh viên' };
 

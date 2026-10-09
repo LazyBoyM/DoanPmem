@@ -40,6 +40,11 @@ const updateGrades = endpoint(async (req, store) => {
         if (!['number','string'].includes(typeof value) || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10) fail('Điểm phải trong khoảng 0–10.');
         return Number(value);
     });
+    const resit = await store.one('resit_attempts', { enrollment_id: enrollment.id });
+    if (resit?.status === 'COMPLETED') {
+        if (scores.some(s => s == null)) fail('Không thể xóa điểm thành phần của học phần đã thi lại.');
+        scores[2] = Math.max(scores[2], Number(resit.original_final_score), Number(resit.score));
+    }
     const { total10, total4, letter } = convertGrade(...scores);
     const data = { enrollment_id: enrollment.id, attendance_score: scores[0], midterm_score: scores[1], final_score: scores[2], total_score_10: total10, total_score_4: total4, letter_grade: letter, is_locked: 0 };
     if (existing) await store.update('grades', existing.id, data); else await store.insert('grades', data);
