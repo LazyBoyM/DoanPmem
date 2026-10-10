@@ -15,6 +15,7 @@ const ManageLecturers = lazy(() => import('./pages/Admin/ManageLecturers'));
 const ManageSubjects = lazy(() => import('./pages/Admin/ManageSubjects'));
 const ManageSemesters = lazy(() => import('./pages/Admin/ManageSemesters'));
 const ManageClasses = lazy(() => import('./pages/Admin/ManageClasses'));
+const ManageFacilities = lazy(() => import('./pages/Admin/ManageFacilities'));
 const LecturerDashboard = lazy(() => import('./pages/Lecturer/Dashboard'));
 const LecturerTimetable = lazy(() => import('./pages/Lecturer/Timetable'));
 const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
@@ -53,6 +54,7 @@ const AppRoutes = () => {
                         <Route path="/admin/subjects" element={<ManageSubjects />} />
                         <Route path="/admin/semesters" element={<ManageSemesters />} />
                         <Route path="/admin/classes" element={<ManageClasses />} />
+                        <Route path="/admin/facilities" element={<ManageFacilities />} />
                     </Route>
 
                     {/* Lecturer Routes */}

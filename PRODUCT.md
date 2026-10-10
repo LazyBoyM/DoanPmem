@@ -16,7 +16,7 @@ Cổng quản lý đào tạo và đăng ký học phần bằng tiếng Việt.
 
 ## Capabilities and Constraints
 
-Giữ toàn bộ chức năng, API, vai trò, phân quyền và quy tắc nghiệp vụ hiện có. React/Vite, Bootstrap và Express/MySQL là nền tảng đang hoạt động. Không thay đổi nghiệp vụ đăng ký, tính điểm, khóa điểm, thi lại hoặc xử lý hồ sơ chỉ vì thay đổi giao diện. Thiết kế lại gồm đăng nhập và tất cả màn hình của ba vai trò, kể cả theo dõi sinh viên và hồ sơ chi tiết.
+Giữ toàn bộ chức năng, API, vai trò, phân quyền và quy tắc nghiệp vụ hiện có. React/Vite, Bootstrap và Express/MySQL là nền tảng đang hoạt động. Không thay đổi nghiệp vụ đăng ký, tính điểm, khóa điểm, thi lại hoặc xử lý hồ sơ chỉ vì thay đổi giao diện. Thiết kế lại gồm đăng nhập và tất cả màn hình của ba vai trò, kể cả theo dõi sinh viên và hồ sơ chi tiết. Phạm vi nghiệp vụ được bổ sung: quản trị viên quản lý danh mục tòa nhà và phòng học; tạo lớp chọn phòng từ danh mục; chỉnh lịch lớp với nhiều buổi và kiểm tra sức chứa, trạng thái, trùng phòng, giảng viên và sinh viên đã đăng ký. Thời khóa biểu hiển thị phòng và địa điểm từ danh mục. Dữ liệu phòng chuyển đổi được ghi rõ là cần xác nhận, không coi giá trị mặc định là thông tin cơ sở thực tế.
 
 ## Brand Commitments
 
@@ -24,7 +24,7 @@ Giữ tên EduPortal và ngôn ngữ tiếng Việt. Người dùng đã chọn 
 
 ## Evidence on Hand
 
-Routes và chức năng hiện có tại client/src/App.jsx; hướng dẫn và quy tắc trong README.md. Các số liệu, hồ sơ, lớp và kết quả trên giao diện lấy từ API. Dữ liệu mock phục vụ kiểm tra cục bộ, không phải bằng chứng về khách hàng hay quy mô thực tế.
+Routes và chức năng hiện có tại client/src/App.jsx; quy tắc tòa nhà, phòng học, xếp lịch, bảo vệ dữ liệu và chuyển đổi tại docs/Quy-tac-toa-phong-hoc.md. Các số liệu, hồ sơ, lớp và kết quả trên giao diện lấy từ API. Dữ liệu mock phục vụ kiểm tra cục bộ, không phải bằng chứng về khách hàng hay quy mô thực tế.
 
 ## Product Principles
 

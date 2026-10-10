@@ -6,13 +6,13 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // These versioned files contain simple statements, with no routines or semicolons in strings.
 function statements(sql) {
-    return sql.replace(/^\s*--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean);
+    return sql.replaceAll('\r\n', '\n').replace(/^\s*--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean);
 }
 async function setup(connection, root = path.join(__dirname, '../../database'), log = console.log) {
     const ddl = statements(await fs.readFile(path.join(root, 'tables.sql'), 'utf8'));
     const seed = statements(await fs.readFile(path.join(root, 'seed.sql'), 'utf8'));
     const tables = ddl.map(sql => /CREATE TABLE IF NOT EXISTS `(\w+)`/.exec(sql)?.[1]);
-    if (tables.length !== 14 || tables.some(t => !t)) throw new Error('Invalid table package');
+    if (tables.length !== 16 || tables.some(t => !t)) throw new Error('Invalid table package');
     const [db] = await connection.query('SELECT DATABASE() AS name');
     if (!db[0]?.name || ['sys', 'mysql', 'information_schema', 'performance_schema'].includes(db[0].name)) {
         throw new Error('Select an application database, for example DB_NAME=test.');
@@ -41,7 +41,7 @@ async function setup(connection, root = path.join(__dirname, '../../database'), 
         const [counts] = await connection.query('SELECT COUNT(*) AS count FROM grades');
         if (Number(counts[0].count) !== 2) throw new Error('Seed verification failed');
         await connection.commit();
-        log('Ready: 14 tables and demo data imported.');
+        log('Ready: 16 tables and demo data imported.');
     } catch (error) {
         await connection.rollback();
         throw error;

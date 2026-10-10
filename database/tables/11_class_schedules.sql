@@ -5,8 +5,11 @@ CREATE TABLE IF NOT EXISTS `class_schedules` (
     `day_of_week` INT NOT NULL COMMENT '2: Thứ 2, 3: Thứ 3, ..., 8: Chủ nhật',
     `start_period` INT NOT NULL COMMENT 'Tiết 1 đến 12',
     `total_periods` INT NOT NULL COMMENT 'Số tiết (vd: 3 tiết)',
-    `room` VARCHAR(30) NOT NULL,
+    `room` VARCHAR(80) NOT NULL,
+    `room_id` INT NOT NULL,
     `week_from` INT DEFAULT 1,
     `week_to` INT DEFAULT 16,
-    CONSTRAINT `fk_schedules_class` FOREIGN KEY (`course_class_id`) REFERENCES `course_classes` (`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_schedules_class` FOREIGN KEY (`course_class_id`) REFERENCES `course_classes` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_schedules_room` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE RESTRICT,
+    KEY `idx_schedules_room` (`room_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

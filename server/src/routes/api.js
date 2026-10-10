@@ -86,6 +86,14 @@ router.put('/admin/registration-periods/:id/toggle', verifyToken, requireRole(['
 router.get('/admin/classes', verifyToken, requireRole(['ADMIN']), registrationController.getAllClasses);
 router.post('/admin/create-class', verifyToken, requireRole(['ADMIN']), adminController.createCourseClass);
 router.put('/admin/classes/:id/status', verifyToken, requireRole(['ADMIN']), adminController.updateClassStatus);
+router.put('/admin/classes/:id/schedule', verifyToken, requireRole(['ADMIN']), adminController.updateClassSchedule);
+const facilityController = require('../controllers/facilityController');
+for (const [resource, handlers] of Object.entries({ buildings: ['getBuildings', 'createBuilding', 'updateBuilding', 'deleteBuilding'], rooms: ['getRooms', 'createRoom', 'updateRoom', 'deleteRoom'] })) {
+    router.get(`/admin/${resource}`, verifyToken, requireRole(['ADMIN']), facilityController[handlers[0]]);
+    router.post(`/admin/${resource}`, verifyToken, requireRole(['ADMIN']), facilityController[handlers[1]]);
+    router.put(`/admin/${resource}/:id`, verifyToken, requireRole(['ADMIN']), facilityController[handlers[2]]);
+    router.delete(`/admin/${resource}/:id`, verifyToken, requireRole(['ADMIN']), facilityController[handlers[3]]);
+}
 router.get('/admin/classes/:id/students', verifyToken, requireRole(['ADMIN']), adminController.getClassEnrolledStudents);
 
 // ==========================================================

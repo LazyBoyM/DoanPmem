@@ -24,9 +24,9 @@ test('database package creates parents first and each editor file contains one s
         for (const match of sql.matchAll(/REFERENCES `(\w+)`/g)) assert.ok(created.has(match[1]), match[1]);
         created.add(/CREATE TABLE IF NOT EXISTS `(\w+)`/.exec(sql)[1]);
     }
-    assert.equal(created.size, 14);
+    assert.equal(created.size, 16);
     const files = fs.readdirSync(path.join(root, 'tables')).sort();
-    assert.equal(files.length, 14);
+    assert.equal(files.length, 16);
     files.forEach((file, i) => assert.deepEqual(statements(fs.readFileSync(path.join(root, 'tables', file), 'utf8')), [ddl[i]]));
     assert.deepEqual(statements(fs.readFileSync(path.join(root, '../schema.sql'), 'utf8')), [...ddl, ...seed]);
 });
@@ -77,7 +77,7 @@ function fakeConnection({ populated = false, failSeed = false } = {}) {
 }
 test('setup runs DDL before seeding, protects existing data and rolls back failed seed', async () => {
     const success = fakeConnection(); await setup(success, root, () => {});
-    assert.equal(success.calls.filter(s => s.startsWith('CREATE TABLE')).length, 14);
+    assert.equal(success.calls.filter(s => s.startsWith('CREATE TABLE')).length, 16);
     assert.equal(success.calls.at(-1), 'COMMIT');
     const populated = fakeConnection({ populated: true });
     await assert.rejects(setup(populated, root, () => {}), /already contains/);

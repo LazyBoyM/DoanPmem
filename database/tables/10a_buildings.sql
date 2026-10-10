@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS `buildings` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `building_code` VARCHAR(30) NOT NULL UNIQUE,
+    `building_name` VARCHAR(100) NOT NULL,
+    `location` VARCHAR(200) NOT NULL DEFAULT '',
+    `status` ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

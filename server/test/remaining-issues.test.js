@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 after(async () => { Object.assign(mockDb, snapshot); await new Promise(resolve => server.close(resolve)); });
 const studentBody = { student_code: 'NEW001', full_name: 'Test Student', class_name: 'TEST', program_id: 1, academic_year: 'K75', email: 'new@example.com', phone: '123', address: 'A' };
-const classBody = { class_code: 'NEWCLASS', subject_id: 6, semester_id: 1, lecturer_id: 1, max_students: 30, schedules: [{ day_of_week: 8, start_period: 10, total_periods: 3, week_from: 1, week_to: 8, room: 'TEST' }] };
+const classBody = { class_code: 'NEWCLASS', subject_id: 6, semester_id: 1, lecturer_id: 1, max_students: 30, schedules: [{ day_of_week: 8, start_period: 10, total_periods: 3, week_from: 1, week_to: 8, room_id: 1 }] };
 
 test('profile edits persist program/year/email and clearing optional fields', async () => {
     const created = await request('/admin/students', studentBody);
@@ -104,7 +104,7 @@ test('class creation validates schedule, room and lecturer collisions and rolls 
     const created = await request('/admin/create-class', classBody);
     assert.equal(created.status, 200, created.body.message);
     assert.equal((await request('/admin/create-class', { ...classBody, class_code: 'COLLISION', lecturer_id: 2 })).status, 400);
-    assert.equal((await request('/admin/create-class', { ...classBody, class_code: 'COLLISION', schedules: [{ ...classBody.schedules[0], room: 'OTHER' }] })).status, 400);
+    assert.equal((await request('/admin/create-class', { ...classBody, class_code: 'COLLISION', schedules: [{ ...classBody.schedules[0], room_id: 3 }] })).status, 400);
     assert.equal((await request('/admin/create-class', { ...classBody, class_code: 'LATER', schedules: [{ ...classBody.schedules[0], week_from: 9, week_to: 16 }] })).status, 200);
 });
 test('class cancellation cleans schedule and enrollments but refuses classes with grades', async () => {

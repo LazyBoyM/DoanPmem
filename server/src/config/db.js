@@ -10,6 +10,17 @@ let isConnected = false;
 
 // Mock in-memory database fallback
 const mockDb = {
+    buildings: [
+        { id: 1, building_code: 'A1', building_name: 'Tòa A1', location: '', status: 'ACTIVE' },
+        { id: 2, building_code: 'A2', building_name: 'Tòa A2', location: '', status: 'ACTIVE' },
+        { id: 3, building_code: 'A3', building_name: 'Tòa A3', location: '', status: 'ACTIVE' }
+    ],
+    rooms: [
+        { id: 1, building_id: 1, room_code: '301', room_name: 'Phòng 301', capacity: 50, floor: 3, room_type: 'LECTURE', status: 'ACTIVE' },
+        { id: 2, building_id: 2, room_code: '402', room_name: 'Phòng 402', capacity: 45, floor: 4, room_type: 'COMPUTER', status: 'ACTIVE' },
+        { id: 3, building_id: 1, room_code: '205', room_name: 'Phòng 205', capacity: 60, floor: 2, room_type: 'COMPUTER', status: 'ACTIVE' },
+        { id: 4, building_id: 3, room_code: '102', room_name: 'Phòng 102', capacity: 50, floor: 1, room_type: 'LECTURE', status: 'ACTIVE' }
+    ],
     resit_attempts: [],
     users: [
         { id: 1, username: 'admin', password: '$2a$10$5mai2UkT5Bfobs5Wa9/qgeNJ02UVfy2BwSe16A39/rvzzTABEFVX2', email: 'admin@edu.vn', role: 'ADMIN', status: 1 },
@@ -63,10 +74,10 @@ const mockDb = {
         { id: 4, class_code: 'LHP_MAT1001_01', subject_id: 6, subject_code: 'MAT1001', subject_name: 'Toán Rời rạc', credits: 3, semester_id: 1, lecturer_id: 2, lecturer_name: 'TS. Nguyễn Văn Nam', max_students: 50, current_students: 0, status: 'OPEN' }
     ],
     class_schedules: [
-        { id: 1, course_class_id: 1, day_of_week: 2, start_period: 1, total_periods: 3, room: '301-A1', week_from: 1, week_to: 16 },
-        { id: 2, course_class_id: 2, day_of_week: 4, start_period: 4, total_periods: 3, room: '402-A2', week_from: 1, week_to: 16 },
-        { id: 3, course_class_id: 3, day_of_week: 2, start_period: 2, total_periods: 3, room: '205-A1', week_from: 1, week_to: 16 },
-        { id: 4, course_class_id: 4, day_of_week: 6, start_period: 7, total_periods: 3, room: '102-A3', week_from: 1, week_to: 16 }
+        { id: 1, course_class_id: 1, day_of_week: 2, start_period: 1, total_periods: 3, room: '301-A1', room_id: 1, week_from: 1, week_to: 16 },
+        { id: 2, course_class_id: 2, day_of_week: 4, start_period: 4, total_periods: 3, room: '402-A2', room_id: 2, week_from: 1, week_to: 16 },
+        { id: 3, course_class_id: 3, day_of_week: 2, start_period: 2, total_periods: 3, room: '205-A1', room_id: 3, week_from: 1, week_to: 16 },
+        { id: 4, course_class_id: 4, day_of_week: 6, start_period: 7, total_periods: 3, room: '102-A3', room_id: 4, week_from: 1, week_to: 16 }
     ],
     enrollments: [
         { id: 1, student_id: 1, course_class_id: 1, status: 'ENROLLED', enrollment_time: '2026-09-02 08:30:00' },

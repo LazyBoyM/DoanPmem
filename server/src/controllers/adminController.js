@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { lockFacilities, resolveRooms } = require('../services/facilities');
 const { endpoint, fail } = require('../services/store');
 const { integer, text, dateTime, requireRow, hasGrade, classesWithDetails, validateSchedules, validateClassConflicts } = require('../services/academic');
 const ok = message => ({ message });
@@ -211,16 +212,37 @@ const toggleRegistrationPeriod = endpoint(async (req, store) => {
 }, true);
 const createCourseClass = endpoint(async (req, store) => {
     const b = req.body;
+    await lockFacilities(store);
     const semester_id = (await requireRow(store, 'semesters', b.semester_id, 'Học kỳ')).id;
     const candidate = { class_code: text(b.class_code, 'mã lớp'), subject_id: (await requireRow(store, 'subjects', b.subject_id, 'Môn học')).id, semester_id,
         lecturer_id: b.lecturer_id ? (await requireRow(store, 'lecturers', b.lecturer_id, 'Giảng viên')).id : null,
         max_students: integer(b.max_students ?? 50, 'Sĩ số', 1, 1000), current_students: 0, status: 'OPEN', schedules: validateSchedules(b.schedules) };
     await unique(store, 'course_classes', 'class_code', candidate.class_code);
+    candidate.schedules = await resolveRooms(store, candidate.schedules, candidate.max_students);
     validateClassConflicts(candidate, await classesWithDetails(store));
     const { schedules, ...fields } = candidate;
     const data = await store.insert('course_classes', fields);
     for (const schedule of schedules) await store.insert('class_schedules', { ...schedule, course_class_id: data.id });
     return { data, message: 'Đã mở lớp học phần.' };
+}, true);
+const updateClassSchedule = endpoint(async (req, store) => {
+    await lockFacilities(store);
+    const cls = await requireRow(store, 'course_classes', req.params.id, 'Lớp');
+    if (cls.status === 'CANCELLED' || cls.grades_locked) fail('Lớp đã hủy hoặc khóa điểm không thể đổi lịch.');
+    const schedules = await resolveRooms(store, validateSchedules(req.body.schedules), cls.max_students);
+    const candidate = { ...cls, schedules };
+    const classes = await classesWithDetails(store);
+    validateClassConflicts(candidate, classes);
+    const students = (await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' })).map(e => e.student_id);
+    const enrollments = await store.related('enrollments', 'student_id', students);
+    const otherIds = new Set(enrollments.filter(e => e.status === 'ENROLLED' && e.course_class_id !== cls.id).map(e => e.course_class_id));
+    const { isScheduleOverlap } = require('../services/scheduleConflictService');
+    for (const other of classes.filter(c => otherIds.has(c.id) && c.semester_id === cls.semester_id && c.status !== 'CANCELLED')) {
+        if (schedules.some(s => other.schedules.some(o => isScheduleOverlap(s, o)))) fail(`Lịch mới trùng lớp ${other.class_code} của sinh viên đã đăng ký.`);
+    }
+    await store.remove('class_schedules', { course_class_id: cls.id });
+    for (const schedule of schedules) await store.insert('class_schedules', { ...schedule, course_class_id: cls.id });
+    return { message: 'Đã cập nhật lịch và phòng học.' };
 }, true);
 const updateClassStatus = endpoint(async (req, store) => {
     const cls = await requireRow(store, 'course_classes', req.params.id, 'Lớp');
@@ -256,4 +278,4 @@ const getClassEnrolledStudents = endpoint(async (req, store) => {
 });
 module.exports = { getDashboardStats, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
     getAllLecturers, createLecturer: createProfile(false), updateLecturer: updateProfile(false), deleteLecturer: deleteProfile(false), getAllSubjects, createSubject, updateSubject, deleteSubject,
-    getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassStatus, getClassEnrolledStudents, getAllDepartments };
+    getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassSchedule, updateClassStatus, getClassEnrolledStudents, getAllDepartments };

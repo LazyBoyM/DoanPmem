@@ -1,4 +1,4 @@
--- Chọn database test. Chạy toàn bộ 13 câu lệnh theo thứ tự.
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `departments` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `department_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `departments` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `programs` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `program_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -30,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `programs` (
     CONSTRAINT `fk_programs_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `lecturers` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL UNIQUE,
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `lecturers` (
     CONSTRAINT `fk_lecturers_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `students` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL UNIQUE,
@@ -60,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `students` (
     CONSTRAINT `fk_students_program` FOREIGN KEY (`program_id`) REFERENCES `programs` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `subjects` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `subject_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -72,6 +77,7 @@ CREATE TABLE IF NOT EXISTS `subjects` (
     CONSTRAINT `fk_subjects_dept` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `prerequisites` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `subject_id` INT NOT NULL,
@@ -82,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `prerequisites` (
     CONSTRAINT `uk_prerequisite` UNIQUE (`subject_id`, `prerequisite_subject_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `semesters` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `semester_code` VARCHAR(20) NOT NULL UNIQUE,
@@ -93,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `semesters` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `registration_periods` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `semester_id` INT NOT NULL,
@@ -105,6 +113,7 @@ CREATE TABLE IF NOT EXISTS `registration_periods` (
     CONSTRAINT `fk_reg_semester` FOREIGN KEY (`semester_id`) REFERENCES `semesters` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `course_classes` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `class_code` VARCHAR(30) NOT NULL UNIQUE,
@@ -121,18 +130,45 @@ CREATE TABLE IF NOT EXISTS `course_classes` (
     CONSTRAINT `fk_classes_lecturer` FOREIGN KEY (`lecturer_id`) REFERENCES `lecturers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `buildings` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `building_code` VARCHAR(30) NOT NULL UNIQUE,
+    `building_name` VARCHAR(100) NOT NULL,
+    `location` VARCHAR(200) NOT NULL DEFAULT '',
+    `status` ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `rooms` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `building_id` INT NOT NULL,
+    `room_code` VARCHAR(30) NOT NULL,
+    `room_name` VARCHAR(100) NOT NULL,
+    `capacity` INT NOT NULL,
+    `floor` INT NOT NULL DEFAULT 0,
+    `room_type` ENUM('LECTURE','COMPUTER','LAB') NOT NULL DEFAULT 'LECTURE',
+    `status` ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    UNIQUE KEY `uq_room_building_code` (`building_id`, `room_code`),
+    CONSTRAINT `fk_rooms_building` FOREIGN KEY (`building_id`) REFERENCES `buildings` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `chk_room_capacity` CHECK (`capacity` BETWEEN 1 AND 1000)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `class_schedules` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `course_class_id` INT NOT NULL,
     `day_of_week` INT NOT NULL COMMENT '2: Thứ 2, 3: Thứ 3, ..., 8: Chủ nhật',
     `start_period` INT NOT NULL COMMENT 'Tiết 1 đến 12',
     `total_periods` INT NOT NULL COMMENT 'Số tiết (vd: 3 tiết)',
-    `room` VARCHAR(30) NOT NULL,
+    `room` VARCHAR(80) NOT NULL,
+    `room_id` INT NOT NULL,
     `week_from` INT DEFAULT 1,
     `week_to` INT DEFAULT 16,
-    CONSTRAINT `fk_schedules_class` FOREIGN KEY (`course_class_id`) REFERENCES `course_classes` (`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_schedules_class` FOREIGN KEY (`course_class_id`) REFERENCES `course_classes` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_schedules_room` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE RESTRICT,
+    KEY `idx_schedules_room` (`room_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `enrollments` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `student_id` INT NOT NULL,
@@ -144,6 +180,7 @@ CREATE TABLE IF NOT EXISTS `enrollments` (
     CONSTRAINT `uk_student_class` UNIQUE (`student_id`, `course_class_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Chọn database test rồi chạy toàn bộ câu lệnh này.
 CREATE TABLE IF NOT EXISTS `grades` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `enrollment_id` INT NOT NULL UNIQUE,
@@ -254,15 +291,27 @@ ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- 11. Lịch học chi tiết
 -- Lớp Phát triển phần mềm: Thứ Hai, tiết 1-3, Phòng 301-A1
-INSERT INTO `class_schedules` (`id`, `course_class_id`, `day_of_week`, `start_period`, `total_periods`, `room`, `week_from`, `week_to`) VALUES
-(1, 1, 2, 1, 3, '301-A1', 1, 16),
+INSERT INTO `buildings` (`id`, `building_code`, `building_name`, `location`, `status`) VALUES
+(1, 'A1', 'Tòa A1', '', 'ACTIVE'),
+(2, 'A2', 'Tòa A2', '', 'ACTIVE'),
+(3, 'A3', 'Tòa A3', '', 'ACTIVE')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`);
+INSERT INTO `rooms` (`id`, `building_id`, `room_code`, `room_name`, `capacity`, `floor`, `room_type`, `status`) VALUES
+(1, 1, '301', 'Phòng 301', 50, 3, 'LECTURE', 'ACTIVE'),
+(2, 2, '402', 'Phòng 402', 45, 4, 'COMPUTER', 'ACTIVE'),
+(3, 1, '205', 'Phòng 205', 60, 2, 'COMPUTER', 'ACTIVE'),
+(4, 3, '102', 'Phòng 102', 50, 1, 'LECTURE', 'ACTIVE')
+ON DUPLICATE KEY UPDATE `id` = VALUES(`id`);
+
+INSERT INTO `class_schedules` (`id`, `course_class_id`, `day_of_week`, `start_period`, `total_periods`, `room`, `room_id`, `week_from`, `week_to`) VALUES
+(1, 1, 2, 1, 3, '301-A1', 1, 1, 16),
 -- Lớp Công nghệ Web: Thứ Tư, tiết 4-6, Phòng 402-A2
-(2, 2, 4, 4, 3, '402-A2', 1, 16),
+(2, 2, 4, 4, 3, '402-A2', 2, 1, 16),
 -- Lớp Cơ sở Dữ liệu: Thứ Ba, tiết 2-4, Phòng 205-A1
 -- Không trùng lịch giảng viên.
-(3, 3, 3, 2, 3, '205-A1', 1, 16),
+(3, 3, 3, 2, 3, '205-A1', 3, 1, 16),
 -- Lớp Toán rời rạc: Thứ Sáu, tiết 7-9, Phòng 102-A3
-(4, 4, 6, 7, 3, '102-A3', 1, 16)
+(4, 4, 6, 7, 3, '102-A3', 4, 1, 16)
 ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- 12. Dữ liệu Đăng ký học phần sẵn

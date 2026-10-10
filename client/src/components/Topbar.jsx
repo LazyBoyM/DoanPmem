@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 const titles = {
     '/admin/grades': 'Nhập & khóa điểm', '/lecturer/academic': 'Theo dõi sinh viên',
     '/admin': 'Bảng điều khiển', '/admin/students': 'Sinh viên', '/admin/lecturers': 'Giảng viên',
-    '/admin/subjects': 'Môn học', '/admin/classes': 'Lớp học phần', '/admin/semesters': 'Học kỳ & đăng ký', '/admin/users': 'Tài khoản & phân quyền',
+    '/admin/facilities': 'Tòa nhà & phòng học', '/admin/subjects': 'Môn học', '/admin/classes': 'Lớp học phần', '/admin/semesters': 'Học kỳ & đăng ký', '/admin/users': 'Tài khoản & phân quyền',
     '/lecturer/grades': 'Nhập & khóa điểm', '/lecturer/timetable': 'Lịch giảng dạy',
     '/student/registration': 'Đăng ký học phần', '/student/timetable': 'Thời khóa biểu', '/student/grades': 'Kết quả & thi lại',
 };

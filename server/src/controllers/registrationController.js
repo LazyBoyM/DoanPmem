@@ -21,6 +21,7 @@ const getGrades = endpoint(async (req, store) => {
     return transcript(store, req.user.student_id, req.query.semester_id ? integer(req.query.semester_id, 'Học kỳ') : null);
 });
 const registerClass = endpoint(async (req, store) => {
+    await require('../services/facilities').lockFacilities(store);
     const student = await requireRow(store, 'students', req.user.student_id, 'Sinh viên');
     const cls = await requireRow(store, 'course_classes', req.body.course_class_id, 'Lớp');
     if (cls.status !== 'OPEN' || cls.grades_locked) fail('Lớp đã đóng đăng ký hoặc khóa điểm.');

@@ -4,7 +4,7 @@ import { useAuth } from '../context/auth-context';
 const menus = {
     ADMIN: [
         { title: 'Tổng quan', items: [['/admin', 'bi-grid-1x2', 'Bảng điều khiển']] },
-        { title: 'Quản lý đào tạo', items: [['/admin/students', 'bi-people', 'Sinh viên'], ['/admin/grades', 'bi-journal-check', 'Nhập & khóa điểm'], ['/admin/lecturers', 'bi-person-workspace', 'Giảng viên'], ['/admin/subjects', 'bi-journal-bookmark', 'Môn học'], ['/admin/classes', 'bi-collection', 'Lớp học phần'], ['/admin/semesters', 'bi-calendar3', 'Học kỳ & đăng ký']] },
+        { title: 'Quản lý đào tạo', items: [['/admin/students', 'bi-people', 'Sinh viên'], ['/admin/grades', 'bi-journal-check', 'Nhập & khóa điểm'], ['/admin/lecturers', 'bi-person-workspace', 'Giảng viên'], ['/admin/subjects', 'bi-journal-bookmark', 'Môn học'], ['/admin/classes', 'bi-collection', 'Lớp học phần'], ['/admin/facilities', 'bi-buildings', 'Tòa nhà & phòng học'], ['/admin/semesters', 'bi-calendar3', 'Học kỳ & đăng ký']] },
         { title: 'Hệ thống', items: [['/admin/users', 'bi-shield-check', 'Tài khoản & phân quyền']] },
     ],
     LECTURER: [{ title: 'Không gian giảng viên', items: [['/lecturer/grades', 'bi-journal-check', 'Nhập & khóa điểm'], ['/lecturer/academic', 'bi-graph-up', 'Theo dõi sinh viên'], ['/lecturer/timetable', 'bi-calendar3', 'Lịch giảng dạy']] }],

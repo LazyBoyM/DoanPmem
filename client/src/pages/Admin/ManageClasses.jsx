@@ -2,9 +2,10 @@ import RecordActions from '../../components/RecordActions';
 import RecordWorkspace from '../../components/RecordWorkspace';
 import AccessibleDialog from '../../components/AccessibleDialog';
 import { useFeedback } from '../../context/feedback-context';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import ClassSchedule from '../../components/ClassSchedule';
+import ClassScheduleEditor from '../../components/ClassScheduleEditor';
 
 const ManageClasses = () => {
     const { notify, confirm } = useFeedback();
@@ -12,10 +13,13 @@ const ManageClasses = () => {
     const [subjects, setSubjects] = useState([]);
     const [lecturers, setLecturers] = useState([]);
     const [semesters, setSemesters] = useState([]);
+    const [rooms, setRooms] = useState([]);
+    const [scheduleClass, setScheduleClass] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modals
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creating, setCreating] = useState(false);
     const [showStudentsModal, setShowStudentsModal] = useState(false);
     const [selectedClass, setSelectedClass] = useState(null);
     const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -31,15 +35,11 @@ const ManageClasses = () => {
         day_of_week: '2',
         start_period: '1',
         total_periods: '3',
-        room: 'P.301',
+        room_id: '',
         week_from: 1,
         week_to: 16
     });
 
-    useEffect(() => {
-        fetchClasses();
-        fetchOptions();
-    }, []);
 
     async function fetchClasses() {
         try {
@@ -52,14 +52,16 @@ const ManageClasses = () => {
         }
     };
 
-    async function fetchOptions() {
+    const fetchOptions = useCallback(async () => {
         try {
-            const [subjRes, lectRes, semRes] = await Promise.all([
+            const [subjRes, lectRes, semRes, roomRes] = await Promise.all([
                 axiosClient.get('/admin/subjects'),
                 axiosClient.get('/admin/lecturers'),
-                axiosClient.get('/admin/semesters')
+                axiosClient.get('/admin/semesters'),
+                axiosClient.get('/admin/rooms')
             ]);
             if (subjRes.success) setSubjects(subjRes.data);
+            if (roomRes.success) setRooms(roomRes.data);
             if (lectRes.success) setLecturers(lectRes.data);
             if (semRes.success) {
                 setSemesters(semRes.data);
@@ -69,9 +71,11 @@ const ManageClasses = () => {
                 setFormData(prev => ({ ...prev, subject_id: subjRes.data[0].id }));
             }
         } catch (err) {
-            console.error("Lỗi lấy danh mục mở lớp:", err);
+            notify(err.response?.data?.message || "Không tải được danh mục mở lớp. Hãy tải lại trang.", "danger");
         }
-    };
+    }, [notify]);
+
+    useEffect(() => { Promise.resolve().then(() => { fetchClasses(); fetchOptions(); }); }, [fetchOptions]);
 
     const toggleStatus = async (id, currentStatus) => {
         try {
@@ -95,11 +99,13 @@ const ManageClasses = () => {
 
     const handleCreateClass = async (e) => {
         e.preventDefault();
-        if (!formData.class_code || !formData.subject_id) {
-            notify('Vui lòng nhập mã lớp và chọn môn học!');
+        if (creating) return;
+        if (!formData.class_code || !formData.subject_id || !formData.room_id) {
+            notify('Vui lòng nhập mã lớp, chọn môn học và phòng học!');
             return;
         }
 
+        setCreating(true);
         try {
             const payload = {
                 class_code: formData.class_code.trim(),
@@ -112,7 +118,7 @@ const ManageClasses = () => {
                         day_of_week: Number(formData.day_of_week),
                         start_period: Number(formData.start_period),
                         total_periods: Number(formData.total_periods),
-                        room: formData.room || 'P.301',
+                        room_id: Number(formData.room_id),
                         week_from: Number(formData.week_from),
                         week_to: Number(formData.week_to)
                     }
@@ -132,7 +138,7 @@ const ManageClasses = () => {
                     day_of_week: '2',
                     start_period: '1',
                     total_periods: '3',
-                    room: 'P.301',
+                    room_id: '',
         week_from: 1,
         week_to: 16
                 });
@@ -140,7 +146,7 @@ const ManageClasses = () => {
             }
         } catch (err) {
             notify(err.response?.data?.message || 'Lỗi mở lớp học phần', 'danger');
-        }
+        } finally { setCreating(false); }
     };
 
     const handleViewStudents = async (cls) => {
@@ -237,6 +243,7 @@ const ManageClasses = () => {
                                         </td>
                                         <td>
                                             <RecordActions label={c.full_name || c.subject_name || c.username || c.class_code}>
+                                                <button className="btn btn-sm btn-outline-primary" disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked)} onClick={() => { fetchOptions(); setScheduleClass(c); }}>Đổi lịch & phòng</button>
                                                 <button
                                                     className={`btn btn-sm ${c.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'}`}
                                                     disabled={c.status === 'CANCELLED'} onClick={() => toggleStatus(c.id, c.status)}
@@ -271,17 +278,17 @@ const ManageClasses = () => {
 
             {/* Modal Mở lớp học phần */}
             {showCreateModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowCreateModal(false)}>
+                <AccessibleDialog className="record-editor" onClose={() => { if (!creating) setShowCreateModal(false); }}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
                                     <i aria-hidden="true" className="bi bi-plus-circle text-primary me-2"></i>Mở lớp học phần
                                 </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowCreateModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={creating} onClick={() => setShowCreateModal(false)}></button>
                             </div>
                             <form onSubmit={handleCreateClass}>
-                                <div className="modal-body p-4">
+                                <div className="modal-body p-4"><fieldset disabled={creating}>
                                     <div className="row g-3">
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold" htmlFor="ManageClasses-field-1">Mã Lớp Học Phần *</label>
@@ -341,7 +348,7 @@ const ManageClasses = () => {
                                                 min="10"
                                                 max="200"
                                                 value={formData.max_students}
-                                                onChange={(e) => setFormData({ ...formData, max_students: e.target.value })}
+                                                onChange={(e) => setFormData({ ...formData, max_students: e.target.value, room_id: '' })}
                                             />
                                         </div>
 
@@ -403,22 +410,20 @@ const ManageClasses = () => {
                                         </div>
                                         <div className="col-md-3">
                                             <label className="form-label small fw-bold" htmlFor="ManageClasses-field-11">Phòng Học</label>
-                                            <input id="ManageClasses-field-11"
-                                                type="text"
-                                                className="form-control"
-                                                placeholder="VD: P.302-A1"
-                                                value={formData.room}
-                                                onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                                            />
+                                            <select id="ManageClasses-field-11" className="form-select" required value={formData.room_id} onChange={e => setFormData({ ...formData, room_id: e.target.value })}>
+                                                <option value="">Chọn phòng đủ sức chứa</option>
+                                                {rooms.filter(r => r.status === 'ACTIVE' && r.building_status === 'ACTIVE' && r.capacity >= Number(formData.max_students)).map(r => <option key={r.id} value={r.id}>{r.label} · {r.capacity} chỗ</option>)}
+                                            </select>
+                                            <small className="text-secondary">Danh mục tại Tòa nhà & phòng học.</small>
                                         </div>
                                     </div>
-                                </div>
+                                </fieldset></div>
                                 <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowCreateModal(false)}>
+                                    <button type="button" className="btn btn-secondary btn-sm" disabled={creating} onClick={() => setShowCreateModal(false)}>
                                         Hủy
                                     </button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-3">
-                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i> Xác Nhận Mở Lớp
+                                    <button type="submit" className="btn btn-primary btn-sm px-3" disabled={creating}>
+                                        {creating ? 'Đang mở lớp…' : <><i aria-hidden="true" className="bi bi-check-circle me-1"></i> Xác nhận mở lớp</>}
                                     </button>
                                 </div>
                             </form>
@@ -427,6 +432,7 @@ const ManageClasses = () => {
                 </AccessibleDialog>
             )}
 
+            {scheduleClass && <ClassScheduleEditor courseClass={scheduleClass} rooms={rooms} onClose={() => setScheduleClass(null)} onSaved={fetchClasses} />}
             {/* Modal Danh Sách Sinh Viên Của Lớp */}
             {showStudentsModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowStudentsModal(false)}>
