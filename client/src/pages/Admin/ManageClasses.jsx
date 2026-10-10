@@ -1,8 +1,13 @@
+import RecordActions from '../../components/RecordActions';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import AccessibleDialog from '../../components/AccessibleDialog';
+import { useFeedback } from '../../context/feedback-context';
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import ClassSchedule from '../../components/ClassSchedule';
 
 const ManageClasses = () => {
+    const { notify, confirm } = useFeedback();
     const [classes, setClasses] = useState([]);
     const [subjects, setSubjects] = useState([]);
     const [lecturers, setLecturers] = useState([]);
@@ -76,22 +81,22 @@ const ManageClasses = () => {
                 fetchClasses();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái lớp');
+            notify(err.response?.data?.message || 'Lỗi cập nhật trạng thái lớp', 'danger');
         }
     };
 
     const cancelClass = async (id) => {
-        if (!window.confirm('Hủy lớp sẽ hủy mọi đăng ký chưa có điểm và gỡ lịch học. Tiếp tục?')) return;
+        if (!await confirm('Hủy lớp sẽ hủy mọi đăng ký chưa có điểm và gỡ lịch học. Tiếp tục?')) return;
         try {
             await axiosClient.put(`/admin/classes/${id}/status`, { status: 'CANCELLED' });
             fetchClasses();
-        } catch (err) { alert(err.response?.data?.message || 'Không thể hủy lớp.'); }
+        } catch (err) { notify(err.response?.data?.message || 'Không thể hủy lớp.', 'danger'); }
     };
 
     const handleCreateClass = async (e) => {
         e.preventDefault();
         if (!formData.class_code || !formData.subject_id) {
-            alert('Vui lòng nhập mã lớp và chọn môn học!');
+            notify('Vui lòng nhập mã lớp và chọn môn học!');
             return;
         }
 
@@ -116,7 +121,7 @@ const ManageClasses = () => {
 
             const res = await axiosClient.post('/admin/create-class', payload);
             if (res.success) {
-                alert('Mở lớp học phần mới thành công!');
+                notify('Mở lớp học phần mới thành công!', 'success');
                 setShowCreateModal(false);
                 setFormData({
                     class_code: '',
@@ -134,7 +139,7 @@ const ManageClasses = () => {
                 fetchClasses();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi mở lớp học phần');
+            notify(err.response?.data?.message || 'Lỗi mở lớp học phần', 'danger');
         }
     };
 
@@ -148,7 +153,7 @@ const ManageClasses = () => {
                 setEnrolledStudents(res.data);
             }
         } catch (err) {
-            console.error('Lỗi lấy danh sách sinh viên của lớp:', err);
+            notify(err.response?.data?.message || 'Lỗi lấy danh sách sinh viên của lớp: Vui lòng dùng nút làm mới để thử lại.', 'danger');
             setEnrolledStudents([]);
         } finally {
             setLoadingStudents(false);
@@ -163,32 +168,28 @@ const ManageClasses = () => {
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-collection-play text-primary me-2"></i>Quản Trị Lớp Học Phần
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Lớp học phần
+                        </h1>
                         <p className="text-muted small mb-0">
                             Mở lớp mới, phân công giảng viên, cấu hình lịch học và đóng/mở đăng ký tín chỉ
                         </p>
                     </div>
                     <button className="btn btn-primary btn-sm shadow-sm" onClick={() => setShowCreateModal(true)}>
-                        <i className="bi bi-plus-circle me-1"></i> Mở Lớp Học Phần Mới
+                        <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Mở lớp học phần
                     </button>
-                </div>
-
-                {/* Filter & Search */}
-                <div className="row g-3 mb-4">
+                </>} filters={<>
                     <div className="col-md-7">
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i className="bi bi-search"></i>
+                                <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                placeholder="Tìm kiếm theo mã lớp, tên môn học hoặc giảng viên..."
+                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã lớp, tên môn học hoặc giảng viên..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -199,19 +200,18 @@ const ManageClasses = () => {
                             Tổng số: <strong className="text-primary">{filteredClasses.length}</strong> lớp học phần
                         </span>
                     </div>
-                </div>
-
-                <div className="table-container-responsive">
-                    <table className="table-modern text-center">
+                </>} sheetTitle="Danh sách lớp học phần" filterTitle="Tra cứu lớp" >
+<div className="table-container-responsive">
+                    <table className="table-modern class-directory-table text-center">
                         <thead>
                             <tr>
-                                <th>Mã Lớp HP</th>
-                                <th className="text-start">Môn Học</th>
-                                <th className="text-start">Giảng Viên Phụ Trách</th>
-                                <th>Lịch Học</th>
-                                <th>Sĩ Số / Slot</th>
-                                <th>Trạng Thái</th>
-                                <th>Thao Tác</th>
+                                <th scope="col">Mã Lớp HP</th>
+                                <th scope="col" className="text-start">Môn Học</th>
+                                <th scope="col" className="text-start">Giảng Viên Phụ Trách</th>
+                                <th scope="col">Lịch Học</th>
+                                <th scope="col">Sĩ Số / Slot</th>
+                                <th scope="col">Trạng thái</th>
+                                <th scope="col">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -236,23 +236,23 @@ const ManageClasses = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="d-flex justify-content-center gap-1">
+                                            <RecordActions label={c.full_name || c.subject_name || c.username || c.class_code}>
                                                 <button
                                                     className={`btn btn-sm ${c.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'}`}
                                                     disabled={c.status === 'CANCELLED'} onClick={() => toggleStatus(c.id, c.status)}
                                                     title={c.status === 'OPEN' ? 'Đóng đăng ký lớp' : 'Mở lại đăng ký lớp'}
                                                 >
-                                                    <i className={`bi ${c.status === 'OPEN' ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                                    <i aria-hidden="true" className={`bi ${c.status === 'OPEN' ? 'bi-lock' : 'bi-unlock'}`}></i>
                                                 </button>
                                                 <button
                                                     className="btn btn-sm btn-outline-info"
                                                     onClick={() => handleViewStudents(c)}
-                                                    title="Xem danh sách sinh viên đã đăng ký"
+                                                    title="Xem danh sách sinh viên đã đăng ký" aria-label="Xem danh sách sinh viên đã đăng ký"
                                                 >
-                                                    <i className="bi bi-people"></i>
+                                                    <i aria-hidden="true" className="bi bi-people"></i>
                                                 </button>
-                                                <button className="btn btn-sm btn-outline-danger" title="Hủy lớp" disabled={c.status === 'CANCELLED'} onClick={() => cancelClass(c.id)}><i className="bi bi-x-circle"></i></button>
-                                            </div>
+                                                <button className="btn btn-sm btn-outline-danger" title="Hủy lớp" aria-label="Hủy lớp" disabled={c.status === 'CANCELLED'} onClick={() => cancelClass(c.id)}><i aria-hidden="true" className="bi bi-x-circle"></i></button>
+                                            </RecordActions>
                                         </td>
                                     </tr>
                                 ))
@@ -266,25 +266,26 @@ const ManageClasses = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            {/* Modal Mở Lớp Học Phần Mới */}
+</RecordWorkspace>
+
+            {/* Modal Mở lớp học phần */}
             {showCreateModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowCreateModal(false)}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className="bi bi-plus-circle text-primary me-2"></i>Mở Lớp Học Phần Mới
+                                    <i aria-hidden="true" className="bi bi-plus-circle text-primary me-2"></i>Mở lớp học phần
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowCreateModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowCreateModal(false)}></button>
                             </div>
                             <form onSubmit={handleCreateClass}>
                                 <div className="modal-body p-4">
                                     <div className="row g-3">
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Mã Lớp Học Phần *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-1">Mã Lớp Học Phần *</label>
+                                            <input id="ManageClasses-field-1"
                                                 type="text"
                                                 className="form-control font-monospace text-uppercase"
                                                 placeholder="VD: CNTT101_01"
@@ -294,8 +295,8 @@ const ManageClasses = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Môn Học *</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-2">Môn Học *</label>
+                                            <select id="ManageClasses-field-2"
                                                 className="form-select"
                                                 required
                                                 value={formData.subject_id}
@@ -311,15 +312,15 @@ const ManageClasses = () => {
                                         </div>
 
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Học kỳ *</label>
-                                            <select required className="form-select" value={formData.semester_id} onChange={e => setFormData({ ...formData, semester_id: e.target.value })}>
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-3">Học kỳ *</label>
+                                            <select id="ManageClasses-field-3" required className="form-select" value={formData.semester_id} onChange={e => setFormData({ ...formData, semester_id: e.target.value })}>
                                                 <option value="">Chọn học kỳ</option>
                                                 {semesters.map(s => <option key={s.id} value={s.id}>{s.semester_name}</option>)}
                                             </select>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Giảng Viên Phụ Trách</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-4">Giảng Viên Phụ Trách</label>
+                                            <select id="ManageClasses-field-4"
                                                 className="form-select"
                                                 value={formData.lecturer_id}
                                                 onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
@@ -333,8 +334,8 @@ const ManageClasses = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Sĩ Số Tối Đa (Slots)</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-5">Sĩ Số Tối Đa (Slots)</label>
+                                            <input id="ManageClasses-field-5"
                                                 type="number"
                                                 className="form-control"
                                                 min="10"
@@ -347,13 +348,13 @@ const ManageClasses = () => {
                                         <div className="col-12"><hr className="my-2"/></div>
                                         <div className="col-12">
                                             <h6 className="fw-bold small text-primary mb-2">
-                                                <i className="bi bi-clock me-1"></i> Thiết Lập Thời Khóa Biểu Lớp Học
+                                                <i aria-hidden="true" className="bi bi-clock me-1"></i> Thiết Lập Thời Khóa Biểu Lớp Học
                                             </h6>
                                         </div>
 
                                         <div className="col-md-3">
-                                            <label className="form-label small fw-bold">Thứ trong tuần</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-6">Thứ trong tuần</label>
+                                            <select id="ManageClasses-field-6"
                                                 className="form-select"
                                                 value={formData.day_of_week}
                                                 onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
@@ -368,8 +369,8 @@ const ManageClasses = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-3">
-                                            <label className="form-label small fw-bold">Tiết Bắt Đầu</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-7">Tiết Bắt Đầu</label>
+                                            <select id="ManageClasses-field-7"
                                                 className="form-select"
                                                 value={formData.start_period}
                                                 onChange={(e) => setFormData({ ...formData, start_period: e.target.value })}
@@ -380,8 +381,8 @@ const ManageClasses = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-3">
-                                            <label className="form-label small fw-bold">Số Tiết Học</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-8">Số Tiết Học</label>
+                                            <select id="ManageClasses-field-8"
                                                 className="form-select"
                                                 value={formData.total_periods}
                                                 onChange={(e) => setFormData({ ...formData, total_periods: e.target.value })}
@@ -393,16 +394,16 @@ const ManageClasses = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-3">
-                                            <label className="form-label">Từ tuần</label>
-                                            <input type="number" min="1" max="53" required className="form-control" value={formData.week_from} onChange={e => setFormData({ ...formData, week_from: e.target.value })} />
+                                            <label className="form-label" htmlFor="ManageClasses-field-9">Từ tuần</label>
+                                            <input id="ManageClasses-field-9" type="number" min="1" max="53" required className="form-control" value={formData.week_from} onChange={e => setFormData({ ...formData, week_from: e.target.value })} />
                                         </div>
                                         <div className="col-md-3">
-                                            <label className="form-label">Đến tuần</label>
-                                            <input type="number" min={formData.week_from} max="53" required className="form-control" value={formData.week_to} onChange={e => setFormData({ ...formData, week_to: e.target.value })} />
+                                            <label className="form-label" htmlFor="ManageClasses-field-10">Đến tuần</label>
+                                            <input id="ManageClasses-field-10" type="number" min={formData.week_from} max="53" required className="form-control" value={formData.week_to} onChange={e => setFormData({ ...formData, week_to: e.target.value })} />
                                         </div>
                                         <div className="col-md-3">
-                                            <label className="form-label small fw-bold">Phòng Học</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-11">Phòng Học</label>
+                                            <input id="ManageClasses-field-11"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: P.302-A1"
@@ -417,28 +418,28 @@ const ManageClasses = () => {
                                         Hủy
                                     </button>
                                     <button type="submit" className="btn btn-primary btn-sm px-3">
-                                        <i className="bi bi-check-circle me-1"></i> Xác Nhận Mở Lớp
+                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i> Xác Nhận Mở Lớp
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
 
             {/* Modal Danh Sách Sinh Viên Của Lớp */}
             {showStudentsModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowStudentsModal(false)}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <div>
                                     <h5 className="modal-title fw-bold mb-0">
-                                        <i className="bi bi-people text-primary me-2"></i>Sinh Viên Lớp: {selectedClass?.class_code}
+                                        <i aria-hidden="true" className="bi bi-people text-primary me-2"></i>Sinh Viên Lớp: {selectedClass?.class_code}
                                     </h5>
                                     <small className="text-muted">{selectedClass?.subject_name} - Sĩ số hiện tại: {selectedClass?.current_students}/{selectedClass?.max_students}</small>
                                 </div>
-                                <button type="button" className="btn-close" onClick={() => setShowStudentsModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowStudentsModal(false)}></button>
                             </div>
                             <div className="modal-body p-3">
                                 {loadingStudents ? (
@@ -451,11 +452,11 @@ const ManageClasses = () => {
                                         <table className="table table-sm table-hover align-middle mb-0">
                                             <thead className="table-light">
                                                 <tr>
-                                                    <th>STT</th>
-                                                    <th>Mã Sinh Viên</th>
-                                                    <th>Họ và Tên</th>
-                                                    <th>Lớp Sinh Hoạt</th>
-                                                    <th>Thời Gian ĐK</th>
+                                                    <th scope="col">STT</th>
+                                                    <th scope="col">Mã sinh viên</th>
+                                                    <th scope="col">Họ và tên</th>
+                                                    <th scope="col">Lớp sinh hoạt</th>
+                                                    <th scope="col">Thời Gian ĐK</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -473,7 +474,7 @@ const ManageClasses = () => {
                                     </div>
                                 ) : (
                                     <div className="text-center py-4 text-muted">
-                                        <i className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                                        <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
                                         Chưa có sinh viên nào đăng ký vào lớp học phần này.
                                     </div>
                                 )}
@@ -485,7 +486,7 @@ const ManageClasses = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
         </div>
     );

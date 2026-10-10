@@ -1,3 +1,5 @@
+import './portalLedger.css';
+import FeedbackProvider from './context/FeedbackProvider';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -89,7 +91,9 @@ const AppRoutes = () => {
 function App() {
     return (
         <AuthProvider>
+            <FeedbackProvider>
             <AppRoutes />
+        </FeedbackProvider>
         </AuthProvider>
     );
 }

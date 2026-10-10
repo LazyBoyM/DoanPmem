@@ -1,21 +1,23 @@
-import { useEffect, useState } from 'react';
+import RecordActions from '../../components/RecordActions';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import LoadingState from '../../components/LoadingState';
+import { useFeedback } from '../../context/feedback-context';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { useAuth } from '../../context/auth-context';
 
 const ManageUsers = () => {
+    const { notify, confirm } = useFeedback();
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
 
-    async function fetchUsers() {
-        setLoading(true);
+
+    const fetchUsers = useCallback(async () => {
         try {
             const res = await axiosClient.get('/admin/users');
             if (res.success) {
@@ -24,22 +26,28 @@ const ManageUsers = () => {
                 setUsers(nonAdminUsers);
             }
         } catch (err) {
-            console.error('Lỗi lấy danh sách tài khoản:', err);
+            notify(err.response?.data?.message || 'Lỗi lấy danh sách tài khoản: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         } finally {
             setLoading(false);
         }
-    };
+    }, [notify]);
+
+    useEffect(() => {
+        // HTTP responses update state after the request settles.
+        // eslint-disable-next-line react/set-state-in-effect
+        fetchUsers();
+    }, [fetchUsers]);
 
     const toggleStatus = async (targetUser) => {
         // Kiểm tra an toàn: Không cho phép tự khóa tài khoản của chính mình
         if (currentUser && currentUser.id === targetUser.id) {
-            alert('Bạn không thể tự khóa tài khoản của chính mình!');
+            notify('Bạn không thể tự khóa tài khoản của chính mình!');
             return;
         }
 
         // Kiểm tra an toàn: Không cho phép khóa tài khoản Admin
         if (targetUser.role === 'ADMIN') {
-            alert('Không thể khóa tài khoản Quản trị viên (Admin)!');
+            notify('Không thể khóa tài khoản Quản trị viên (Admin)!');
             return;
         }
 
@@ -49,21 +57,21 @@ const ManageUsers = () => {
                 fetchUsers();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái tài khoản.');
+            notify(err.response?.data?.message || 'Lỗi cập nhật trạng thái tài khoản.', 'danger');
         }
     };
 
     const handleResetPassword = async (targetUser) => {
-        if (!window.confirm(`Bạn có chắc muốn đặt lại mật khẩu cho tài khoản "${targetUser.username}" về mặc định (123456)?`)) {
+        if (!await confirm(`Bạn có chắc muốn đặt lại mật khẩu cho tài khoản "${targetUser.username}" về mặc định (123456)?`)) {
             return;
         }
         try {
             const res = await axiosClient.put(`/admin/users/${targetUser.id}/reset-password`);
             if (res.success) {
-                alert(res.message || 'Đặt lại mật khẩu thành công (123456).');
+                notify(res.message || 'Đặt lại mật khẩu thành công (123456).');
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.');
+            notify(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.', 'danger');
         }
     };
 
@@ -76,13 +84,11 @@ const ManageUsers = () => {
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                {/* Header */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-shield-lock text-primary me-2"></i>Quản Lý Tài Khoản & Phân Quyền
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Tài khoản & phân quyền
+                        </h1>
                         <p className="text-muted small mb-0">
                             Quản trị tài khoản Giảng viên và Sinh viên, cấp phát quyền hạn và kích hoạt đăng nhập
                         </p>
@@ -91,27 +97,23 @@ const ManageUsers = () => {
                         <Link className="btn btn-primary btn-sm" to="/admin/students">Tạo hồ sơ & tài khoản sinh viên</Link>
                         <Link className="btn btn-outline-primary btn-sm" to="/admin/lecturers">Tạo hồ sơ & tài khoản giảng viên</Link>
                     </div>
-                </div>
-
-                {/* Filter & Search Toolbar */}
-                <div className="row g-3 mb-4">
+                </>} filters={<>
                     <div className="col-md-7">
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i className="bi bi-search"></i>
+                                <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                placeholder="Tìm kiếm theo tên đăng nhập hoặc email..."
+                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo tên đăng nhập hoặc email..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
                     <div className="col-md-5">
-                        <select
-                            className="form-select"
+                        <select aria-label="Lọc phạm vi danh sách"                             className="form-select"
                             value={roleFilter}
                             onChange={(e) => setRoleFilter(e.target.value)}
                         >
@@ -120,40 +122,35 @@ const ManageUsers = () => {
                             <option value="STUDENT">Sinh viên (STUDENT)</option>
                         </select>
                     </div>
-                </div>
-
-                {/* Note badge */}
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                </>} sheetTitle="Danh sách tài khoản" filterTitle="Tra cứu tài khoản" summary={<>
                     <span className="badge bg-light text-dark border px-3 py-2">
                         Hiển thị <b>{filteredUsers.length}</b> tài khoản (Tài khoản Quản trị viên được bảo mật ẩn)
                     </span>
-                </div>
-
-                {/* Modern Data Table */}
-                <div className="table-container-responsive">
+                </>}>
+<div className="table-container-responsive">
                     <table className="table-modern text-center align-middle">
                         <thead>
                             <tr>
-                                <th>STT</th>
-                                <th>Tên Đăng Nhập</th>
-                                <th className="text-start">Địa Chỉ Email</th>
-                                <th>Vai Trò (Role)</th>
-                                <th>Trạng Thái</th>
-                                <th>Thao Tác</th>
+                                <th scope="col">STT</th>
+                                <th scope="col">Tên Đăng Nhập</th>
+                                <th scope="col" className="text-start">Địa Chỉ Email</th>
+                                <th scope="col">Vai Trò (Role)</th>
+                                <th scope="col">Trạng thái</th>
+                                <th scope="col">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan="6" className="py-4 text-muted">
-                                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                        <LoadingState compact />
                                         Đang tải danh sách tài khoản...
                                     </td>
                                 </tr>
                             ) : filteredUsers.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="py-4 text-muted">
-                                        <i className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
+                                        <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
                                         Không tìm thấy tài khoản nào phù hợp.
                                     </td>
                                 </tr>
@@ -167,7 +164,7 @@ const ManageUsers = () => {
                                             </span>
                                         </td>
                                         <td className="text-start text-muted small">
-                                            <i className="bi bi-envelope me-1"></i>
+                                            <i aria-hidden="true" className="bi bi-envelope me-1"></i>
                                             {u.email || 'Chưa cập nhật'}
                                         </td>
                                         <td>
@@ -176,7 +173,7 @@ const ManageUsers = () => {
                                                     ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
                                                     : 'bg-primary-subtle text-primary border border-primary-subtle'
                                             }`}>
-                                                <i className={`bi ${u.role === 'LECTURER' ? 'bi-person-workspace' : 'bi-backpack'} me-1`}></i>
+                                                <i aria-hidden="true" className={`bi ${u.role === 'LECTURER' ? 'bi-person-workspace' : 'bi-backpack'} me-1`}></i>
                                                 {u.role === 'LECTURER' ? 'Giảng Viên' : 'Sinh Viên'}
                                             </span>
                                         </td>
@@ -186,7 +183,7 @@ const ManageUsers = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="d-flex justify-content-center gap-1">
+                                            <RecordActions label={u.full_name || u.subject_name || u.username || u.class_code}>
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${
                                                         (u.status === 1 || u.status === 'ACTIVE')
@@ -196,16 +193,16 @@ const ManageUsers = () => {
                                                     onClick={() => toggleStatus(u)}
                                                     title={u.status === 1 || u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                                 >
-                                                    <i className={`bi ${(u.status === 1 || u.status === 'ACTIVE') ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                                    <i aria-hidden="true" className={`bi ${(u.status === 1 || u.status === 'ACTIVE') ? 'bi-lock' : 'bi-unlock'}`}></i>
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-primary btn-sm px-2 py-1"
                                                     onClick={() => handleResetPassword(u)}
-                                                    title="Đặt lại mật khẩu về 123456"
+                                                    title="Đặt lại mật khẩu về 123456" aria-label="Đặt lại mật khẩu về 123456"
                                                 >
-                                                    <i className="bi bi-key"></i>
+                                                    <i aria-hidden="true" className="bi bi-key"></i>
                                                 </button>
-                                            </div>
+                                            </RecordActions>
                                         </td>
                                     </tr>
                                 ))
@@ -213,7 +210,8 @@ const ManageUsers = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+
+</RecordWorkspace>
 
             {/* Modal Tạo Tài Khoản */}
 

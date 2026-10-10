@@ -8,3 +8,8 @@ database/
 *.log
 tmp/
 *.pdf
+.impeccable/
+PRODUCT.md
+DESIGN.md
+
+docs/

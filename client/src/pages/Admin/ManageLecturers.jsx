@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import RecordActions from '../../components/RecordActions';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import LoadingState from '../../components/LoadingState';
+import AccessibleDialog from '../../components/AccessibleDialog';
+import { useFeedback } from '../../context/feedback-context';
+import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 
 const ManageLecturers = () => {
+    const { notify, confirm } = useFeedback();
     const [lecturers, setLecturers] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,12 +30,9 @@ const ManageLecturers = () => {
         password: ''
     });
 
-    useEffect(() => {
-        fetchData();
-    }, []);
 
-    async function fetchData() {
-        setLoading(true);
+
+    const fetchData = useCallback(async () => {
         try {
             const [lecRes, deptRes] = await Promise.all([
                 axiosClient.get('/admin/lecturers'),
@@ -38,11 +41,17 @@ const ManageLecturers = () => {
             if (lecRes.success) setLecturers(lecRes.data);
             if (deptRes.success) setDepartments(deptRes.data);
         } catch (err) {
-            console.error('Lỗi nạp dữ liệu giảng viên:', err);
+            notify(err.response?.data?.message || 'Lỗi nạp dữ liệu giảng viên: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         } finally {
             setLoading(false);
         }
-    };
+    }, [notify]);
+
+    useEffect(() => {
+        // HTTP responses update state after the request settles.
+        // eslint-disable-next-line react/set-state-in-effect
+        fetchData();
+    }, [fetchData]);
 
     const handleOpenAdd = () => {
         setIsEditing(false);
@@ -80,46 +89,46 @@ const ManageLecturers = () => {
             if (isEditing) {
                 const res = await axiosClient.put(`/admin/lecturers/${currentId}`, formData);
                 if (res.success) {
-                    alert('Cập nhật thông tin giảng viên thành công!');
+                    notify('Cập nhật thông tin giảng viên thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             } else {
                 const res = await axiosClient.post('/admin/lecturers', formData);
                 if (res.success) {
-                    alert('Thêm giảng viên mới thành công!');
+                    notify('Thêm giảng viên mới thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+            notify(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.', 'danger');
         }
     };
 
     const handleDelete = async (id, code, name) => {
-        if (!window.confirm(`Bạn có chắc chắn muốn xóa giảng viên ${name} (${code})?`)) return;
+        if (!await confirm(`Bạn có chắc chắn muốn xóa giảng viên ${name} (${code})?`)) return;
         try {
             const res = await axiosClient.delete(`/admin/lecturers/${id}`);
             if (res.success) {
-                alert('Xóa giảng viên thành công!');
+                notify('Xóa giảng viên thành công!', 'success');
                 fetchData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi xóa giảng viên.');
+            notify(err.response?.data?.message || 'Lỗi xóa giảng viên.', 'danger');
         }
     };
 
     const handleResetPassword = async (userId, lecturerCode) => {
         if (!userId) return;
-        if (!window.confirm(`Đặt lại mật khẩu cho giảng viên ${lecturerCode} về mặc định (123456)?`)) return;
+        if (!await confirm(`Đặt lại mật khẩu cho giảng viên ${lecturerCode} về mặc định (123456)?`)) return;
         try {
             const res = await axiosClient.put(`/admin/users/${userId}/reset-password`);
             if (res.success) {
-                alert(res.message || 'Đặt lại mật khẩu thành công.');
+                notify(res.message || 'Đặt lại mật khẩu thành công.');
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.');
+            notify(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.', 'danger');
         }
     };
 
@@ -132,7 +141,7 @@ const ManageLecturers = () => {
                 fetchData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi cập nhật trạng thái.');
+            notify(err.response?.data?.message || 'Lỗi cập nhật trạng thái.', 'danger');
         }
     };
 
@@ -145,41 +154,35 @@ const ManageLecturers = () => {
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                {/* Header */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-person-workspace text-primary me-2"></i>Quản Lý Giảng Viên
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Giảng viên
+                        </h1>
                         <p className="text-muted small mb-0">
                             Danh sách cán bộ giảng viên, phân công bộ môn, học vị và cấp quyền giảng dạy
                         </p>
                     </div>
                     <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
-                        <i className="bi bi-person-plus me-1"></i> Thêm Giảng Viên Mới
+                        <i aria-hidden="true" className="bi bi-person-plus me-1"></i> Thêm giảng viên
                     </button>
-                </div>
-
-                {/* Filter & Search */}
-                <div className="row g-3 mb-4">
+                </>} filters={<>
                     <div className="col-md-7">
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i className="bi bi-search"></i>
+                                <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                placeholder="Tìm kiếm theo mã GV, họ và tên giảng viên..."
+                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã GV, họ và tên giảng viên..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
                     <div className="col-md-5">
-                        <select
-                            className="form-select"
+                        <select aria-label="Lọc phạm vi danh sách"                             className="form-select"
                             value={filterDept}
                             onChange={(e) => setFilterDept(e.target.value)}
                         >
@@ -189,42 +192,37 @@ const ManageLecturers = () => {
                             ))}
                         </select>
                     </div>
-                </div>
-
-                {/* Counter */}
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                </>} sheetTitle="Danh sách giảng viên" filterTitle="Tra cứu giảng viên" summary={<>
                     <span className="badge bg-light text-dark border px-3 py-2">
                         Hiển thị <b>{filteredLecturers.length}</b> / <b>{lecturers.length}</b> giảng viên
                     </span>
-                </div>
-
-                {/* Table */}
-                <div className="table-container-responsive">
-                    <table className="table-modern text-center align-middle">
+                </>}>
+<div className="table-container-responsive">
+                    <table className="table-modern directory-table text-center align-middle">
                         <thead>
                             <tr>
-                                <th>STT</th>
-                                <th>Mã GV</th>
-                                <th className="text-start">Họ và Tên</th>
-                                <th>Học Vị</th>
-                                <th>Khoa / Bộ Môn</th>
-                                <th>Thông Tin Liên Hệ</th>
-                                <th>Trạng Thái</th>
-                                <th>Thao Tác</th>
+                                <th scope="col">STT</th>
+                                <th scope="col">Mã GV</th>
+                                <th scope="col" className="text-start">Họ và tên</th>
+                                <th scope="col">Học Vị</th>
+                                <th scope="col">Khoa / Bộ Môn</th>
+                                <th scope="col">Thông Tin Liên Hệ</th>
+                                <th scope="col">Trạng thái</th>
+                                <th scope="col">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                        <LoadingState compact />
                                         Đang tải dữ liệu giảng viên...
                                     </td>
                                 </tr>
                             ) : filteredLecturers.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <i className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
+                                        <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
                                         Không tìm thấy giảng viên nào phù hợp.
                                     </td>
                                 </tr>
@@ -250,8 +248,8 @@ const ManageLecturers = () => {
                                             <div className="fw-semibold text-dark small">{lec.department_name || 'Bộ môn CNTT'}</div>
                                         </td>
                                         <td className="text-start small">
-                                            <div><i className="bi bi-envelope me-1 text-muted"></i>{lec.email || '---'}</div>
-                                            <div><i className="bi bi-telephone me-1 text-muted"></i>{lec.phone || '---'}</div>
+                                            <div><i aria-hidden="true" className="bi bi-envelope me-1 text-muted"></i>{lec.email || '---'}</div>
+                                            <div><i aria-hidden="true" className="bi bi-telephone me-1 text-muted"></i>{lec.phone || '---'}</div>
                                         </td>
                                         <td>
                                             <span className={`badge ${lec.status === 1 ? 'bg-success' : 'bg-danger'}`}>
@@ -259,36 +257,36 @@ const ManageLecturers = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="d-flex justify-content-center gap-1">
+                                            <RecordActions label={lec.full_name || lec.subject_name || lec.username || lec.class_code}>
                                                 <button
                                                     className="btn btn-outline-primary btn-sm px-2 py-1"
-                                                    title="Chỉnh sửa thông tin"
+                                                    title="Chỉnh sửa thông tin" aria-label="Chỉnh sửa thông tin"
                                                     onClick={() => handleOpenEdit(lec)}
                                                 >
-                                                    <i className="bi bi-pencil-square"></i>
+                                                    <i aria-hidden="true" className="bi bi-pencil-square"></i>
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-warning btn-sm px-2 py-1"
-                                                    title="Đặt lại mật khẩu về 123456"
+                                                    title="Đặt lại mật khẩu về 123456" aria-label="Đặt lại mật khẩu về 123456"
                                                     onClick={() => handleResetPassword(lec.user_id, lec.lecturer_code)}
                                                 >
-                                                    <i className="bi bi-key"></i>
+                                                    <i aria-hidden="true" className="bi bi-key"></i>
                                                 </button>
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${lec.status === 1 ? 'btn-outline-secondary' : 'btn-outline-success'}`}
                                                     title={lec.status === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                                     onClick={() => handleToggleStatus(lec.user_id, lec.status)}
                                                 >
-                                                    <i className={`bi ${lec.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i>
+                                                    <i aria-hidden="true" className={`bi ${lec.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i>
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-danger btn-sm px-2 py-1"
-                                                    title="Xóa giảng viên"
+                                                    title="Xóa giảng viên" aria-label="Xóa giảng viên"
                                                     onClick={() => handleDelete(lec.id, lec.lecturer_code, lec.full_name)}
                                                 >
-                                                    <i className="bi bi-trash"></i>
+                                                    <i aria-hidden="true" className="bi bi-trash"></i>
                                                 </button>
-                                            </div>
+                                            </RecordActions>
                                         </td>
                                     </tr>
                                 ))
@@ -296,26 +294,27 @@ const ManageLecturers = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+
+</RecordWorkspace>
 
             {/* Modal Thêm/Sửa Giảng Viên */}
             {showModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-md modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-person-plus text-primary'} me-2`}></i>
-                                    {isEditing ? 'Chỉnh Sửa Thông Tin Giảng Viên' : 'Thêm Giảng Viên Mới'}
+                                    <i aria-hidden="true" className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-person-plus text-primary'} me-2`}></i>
+                                    {isEditing ? 'Chỉnh Sửa Thông Tin Giảng Viên' : 'Thêm giảng viên'}
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowModal(false)}></button>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body p-4">
                                     <div className="row g-3">
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Mã Giảng Viên *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-1">Mã giảng viên *</label>
+                                            <input id="ManageLecturers-field-1"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: GV003"
@@ -326,8 +325,8 @@ const ManageLecturers = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Học Vị *</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-2">Học Vị *</label>
+                                            <select id="ManageLecturers-field-2"
                                                 className="form-select"
                                                 value={formData.degree}
                                                 onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
@@ -340,8 +339,8 @@ const ManageLecturers = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-12">
-                                            <label className="form-label small fw-bold">Họ và Tên Giảng Viên *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-3">Họ và tên Giảng Viên *</label>
+                                            <input id="ManageLecturers-field-3"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: TS. Trần Văn Minh"
@@ -351,8 +350,8 @@ const ManageLecturers = () => {
                                             />
                                         </div>
                                         <div className="col-md-12">
-                                            <label className="form-label small fw-bold">Khoa / Bộ Môn Trực Thuộc *</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-4">Khoa / Bộ Môn Trực Thuộc *</label>
+                                            <select id="ManageLecturers-field-4"
                                                 className="form-select"
                                                 value={formData.department_id}
                                                 onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
@@ -363,8 +362,8 @@ const ManageLecturers = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Số Điện Thoại</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-5">Số điện thoại</label>
+                                            <input id="ManageLecturers-field-5"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="09..."
@@ -373,8 +372,8 @@ const ManageLecturers = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Email Liên Hệ</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageLecturers-field-6">Email Liên Hệ</label>
+                                            <input id="ManageLecturers-field-6"
                                                 type="email"
                                                 className="form-control"
                                                 placeholder="gv@edu.vn"
@@ -385,7 +384,7 @@ const ManageLecturers = () => {
                                         {!isEditing && (
                                             <div className="col-md-12">
                                                 <div className="p-3 bg-light rounded small text-muted">
-                                                    <i className="bi bi-info-circle text-primary me-1"></i>
+                                                    <i aria-hidden="true" className="bi bi-info-circle text-primary me-1"></i>
                                                     Tài khoản hệ thống sẽ được cấp với <b>Username = Mã giảng viên</b> và <b>Mật khẩu mặc định: 123456</b>.
                                                 </div>
                                             </div>
@@ -395,13 +394,13 @@ const ManageLecturers = () => {
                                 <div className="modal-footer bg-light">
                                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>Hủy</button>
                                     <button type="submit" className="btn btn-primary btn-sm px-4">
-                                        <i className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu Thay Đổi' : 'Tạo Giảng Viên'}
+                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu thay đổi' : 'Tạo hồ sơ giảng viên'}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
         </div>
     );

@@ -1,3 +1,5 @@
+import { useFeedback } from '../../context/feedback-context';
+import LoadingState from '../../components/LoadingState';
 import { useEffect, useState, useCallback } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useAcademic } from '../../context/academic-context';
@@ -5,13 +7,23 @@ import SemesterSelect from '../../components/SemesterSelect';
 import ClassSchedule from '../../components/ClassSchedule';
 import { useNavigate } from 'react-router-dom';
 
+const isLocked = value => value === true || Number(value) === 1;
+const enrollmentRestriction = (enrollment, period) => {
+    if (!period) return 'Đợt đăng ký đã đóng';
+    if (isLocked(enrollment.grades_locked) || isLocked(enrollment.grade?.is_locked)) return 'Đã khóa điểm';
+    if (enrollment.grade && [enrollment.grade.attendance_score, enrollment.grade.midterm_score, enrollment.grade.final_score].some(value => value != null)) return 'Đã có điểm';
+    return '';
+};
+
 const StudentRegistration = () => {
+    const { confirm } = useFeedback();
     const { semesterId, period, refresh } = useAcademic();
     const [result, setResult] = useState({ semesterId: '', classes: [], enrollments: [] });
     const [searchTerm, setSearchTerm] = useState('');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState(null);
     const [busy, setBusy] = useState(false);
+    const [selectedClassId, setSelectedClassId] = useState('');
     const navigate = useNavigate();
     const fetchData = useCallback(async (signal) => {
         if (!semesterId) return;
@@ -47,7 +59,7 @@ const StudentRegistration = () => {
         finally { setBusy(false); refresh(); }
     };
     const handleCancelEnrollment = async enrollmentId => {
-        if (!window.confirm('Hủy đăng ký lớp học phần này?')) return;
+        if (!await confirm('Hủy đăng ký lớp học phần này?')) return;
         setBusy(true); setNotice(null);
         try {
             await axiosClient.post('/registration/cancel', { enrollment_id: enrollmentId });
@@ -61,165 +73,24 @@ const StudentRegistration = () => {
     const maxCredits = period?.max_credits ?? 0;
     const progressPercent = maxCredits ? Math.min(totalCredits / maxCredits * 100, 100) : 0;
 
-    return (
-        <div className="student-pane">
-            <SemesterSelect />
-            {notice && <div className={`alert alert-${notice.type}`} role="status">{notice.text}</div>}
-            {error && <div className="alert alert-danger" role="alert">{error}</div>}
-            {!period && <div className="alert alert-info">Học kỳ đã chọn chưa có đợt đăng ký đang mở.</div>}
-            {/* Page Header */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                <div>
-                    <h4 className="fw-bold mb-1">
-                        <i className="bi bi-card-checklist text-primary me-2"></i>Cổng Đăng Ký Học Phần Trực Tuyến
-                    </h4>
-                    <p className="text-muted small mb-0">
-                        Đăng ký học phần theo kế hoạch đào tạo, kiểm tra trùng lịch và quản lý tín chỉ tích lũy
-                    </p>
-                </div>
-            </div>
+    const activeClass = filteredClasses.find(c => String(c.id) === selectedClassId) || filteredClasses[0];
+    const activeEnrolled = activeClass && myEnrollments.some(e => e.id === activeClass.id);
+    const activeFull = activeClass && activeClass.current_students >= activeClass.max_students;
+    const activeRestriction = !period ? 'Đợt đăng ký đã đóng' : activeClass && isLocked(activeClass.grades_locked) ? 'Đã khóa điểm' : '';
+    const activeLabel = activeEnrolled ? 'Đã đăng ký' : activeFull ? 'Hết chỗ' : activeRestriction || (busy ? 'Đang xử lý…' : 'Đăng ký lớp này');
 
-            <div className="row g-4">
-                {/* Cột danh sách lớp mở */}
-                <div className="col-lg-8">
-                    <div className="card shadow-sm border-0">
-                        <div className="card-header-styled">
-                            <h5><i className="bi bi-collection-play text-primary"></i> Các Lớp Học Phần Đang Mở Đăng Ký</h5>
-                            <span className="badge-soft-primary">{filteredClasses.length} Lớp</span>
-                        </div>
-                        <div className="p-3">
-                            <div className="input-group mb-3">
-                                <span className="input-group-text bg-white"><i className="bi bi-search"></i></span>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    placeholder="Tìm theo mã lớp, tên môn học, giảng viên phụ trách..."
-                                    value={searchTerm}
-                                    onChange={handleSearch}
-                                />
-                            </div>
-
-                            <div className="table-container-responsive">
-                                <table className="table-modern">
-                                    <thead>
-                                        <tr>
-                                            <th>Mã Lớp HP</th>
-                                            <th>Tên Học Phần</th>
-                                            <th>Số TC</th>
-                                            <th>Giảng Viên</th>
-                                            <th>Lịch Học</th>
-                                            <th>Sĩ số / sức chứa</th>
-                                            <th className="text-center">Thao Tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredClasses.length > 0 ? filteredClasses.map(c => {
-                                            const isEnrolled = myEnrollments.some(e => e.id === c.id);
-                                            const isFull = c.current_students >= c.max_students;
-
-                                            let btnClass = 'btn-outline-primary';
-                                            let btnText = 'Đăng Ký';
-                                            let disabled = false;
-
-                                            if (isEnrolled) {
-                                                btnClass = 'btn-success disabled';
-                                                btnText = 'Đã đăng ký';
-                                                disabled = true;
-                                            } else if (isFull) {
-                                                btnClass = 'btn-secondary disabled';
-                                                btnText = 'Hết Chỗ';
-                                                disabled = true;
-                                            }
-
-                                            return (
-                                                <tr key={c.id}>
-                                                    <td className="fw-bold text-primary">{c.class_code}</td>
-                                                    <td className="fw-semibold">{c.subject_name}</td>
-                                                    <td>{c.credits}</td>
-                                                    <td>{c.lecturer_name || 'Chưa xếp'}</td>
-                                                    <td><ClassSchedule schedules={c.schedules} /></td>
-                                                    <td><span className={isFull ? 'text-danger fw-bold' : ''}>{c.current_students} / {c.max_students}</span></td>
-                                                    <td className="text-center">
-                                                        <button
-                                                            className={`btn btn-sm px-3 fw-semibold ${btnClass}`}
-                                                            disabled={disabled || busy || !period || c.grades_locked === 1}
-                                                            onClick={() => handleEnroll(c.id)}
-                                                        >
-                                                            {btnText}
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        }) : (
-                                            <tr>
-                                                <td colSpan="7" className="text-center text-muted py-4">Không tìm thấy lớp học phần nào.</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Cột giỏ môn học đã đăng ký */}
-                <div className="col-lg-4">
-                    <div className="card shadow-sm border-0 sticky-top" style={{ top: '90px' }}>
-                        <div className="card-header-styled">
-                            <h5><i className="bi bi-cart-check text-success"></i> Giỏ Môn Đã Đăng Ký</h5>
-                            <span className="badge bg-primary">{totalCredits} / {maxCredits || "—"} TC</span>
-                        </div>
-                        <div className="p-3">
-                            <div className="d-flex justify-content-between small text-muted mb-2">
-                                <span>Giới hạn: Tối thiểu {minCredits} TC</span>
-                                <span>Tối đa: {maxCredits || "—"} TC</span>
-                            </div>
-                            <div className="progress mb-3" style={{ height: '8px' }}>
-                                <div className={`progress-bar ${totalCredits >= minCredits ? 'bg-success' : 'bg-warning'}`} style={{ width: `${progressPercent}%` }}></div>
-                            </div>
-
-                            <div className="list-group list-group-flush mb-3" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                                {myEnrollments.length > 0 ? myEnrollments.map(e => (
-                                    <div className="list-group-item px-0 py-3 border-bottom" key={e.enrollment_id}>
-                                        <div className="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <h6 className="mb-1 fw-bold text-dark">{e.subject_name}</h6>
-                                                <div className="small text-muted mb-1">
-                                                    Mã Lớp: <span className="text-primary">{e.class_code}</span> • {e.credits} TC
-                                                </div>
-                                                <div className="small text-muted">
-                                                    <ClassSchedule schedules={e.schedules} />
-                                                </div>
-                                            </div>
-                                            <button
-                                                className="btn btn-outline-danger btn-sm rounded-circle p-1"
-                                                title="Chỉ hủy trong đợt mở và khi chưa có điểm"
-                                                disabled={busy || !period || Boolean(e.grades_locked) || Boolean(e.grade && (e.grade.is_locked || [e.grade.attendance_score, e.grade.midterm_score, e.grade.final_score].some(v => v != null)))}
-                                                onClick={() => handleCancelEnrollment(e.enrollment_id)}
-                                            >
-                                                <i className="bi bi-x-lg"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="text-center text-muted py-4">Giỏ môn học trống.</div>
-                                )}
-                            </div>
-
-                            <div className="d-grid gap-2">
-                                <button className="btn btn-outline-primary btn-sm" onClick={() => navigate('/student/timetable')}>
-                                    <i className="bi bi-calendar3-week me-1"></i> Xem Thời Khóa Biểu Tuần
-                                </button>
-                                <button className="btn btn-outline-success btn-sm" onClick={() => navigate('/student/grades')}>
-                                    <i className="bi bi-award me-1"></i> Xem Kết Quả Học Tập
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+    return <div className="student-pane">
+        <div className="dashboard-heading"><div><h1>Đăng ký học phần</h1><p>Chọn lớp trong mục lục, kiểm tra lịch và hoàn tất kế hoạch học kỳ.</p></div><SemesterSelect /></div>
+        {notice && <div className={`alert alert-${notice.type}`} role={notice.type === 'danger' ? 'alert' : 'status'}>{notice.text}</div>}
+        {error && <div className="alert alert-danger" role="alert">{error}<button className="btn btn-sm btn-outline-danger ms-3" onClick={() => fetchData()}>Thử lại</button></div>}
+        {!period && <div className="alert alert-info">Học kỳ đã chọn chưa có đợt đăng ký đang mở. Bạn vẫn có thể tra cứu lớp và các học phần đã đăng ký.</div>}
+        <div className="registration-catalog-layout"><aside className="registration-catalog-index"><h2>Lớp mở đăng ký · {filteredClasses.length}</h2><label className="search-field"><i aria-hidden="true" className="bi bi-search" /><input aria-label="Tìm lớp đăng ký" placeholder="Môn, mã lớp hoặc giảng viên…" value={searchTerm} onChange={handleSearch} /></label><div className="registration-catalog-list">{filteredClasses.map(c => <button key={c.id} aria-pressed={c.id === activeClass?.id} disabled={busy} onClick={() => setSelectedClassId(String(c.id))}><strong>{c.subject_name}</strong><small>{c.class_code}</small><small>{c.credits} tín chỉ · {c.current_students}/{c.max_students} sinh viên</small></button>)}</div><label className="registration-mobile-picker" htmlFor="registration-class">Chọn lớp học phần</label><select id="registration-class" className="form-select registration-mobile-picker" disabled={busy || !filteredClasses.length} value={activeClass?.id || ''} onChange={e => setSelectedClassId(e.target.value)}>{!filteredClasses.length && <option value="">Không có lớp phù hợp</option>}{filteredClasses.map(c => <option key={c.id} value={c.id}>{c.subject_name} · {c.class_code}</option>)}</select></aside>
+        <div className="registration-plan"><section className="registration-class-sheet" aria-label="Thông tin lớp đăng ký">
+            {result.semesterId !== semesterId && !error ? <LoadingState label="Đang tải lớp đăng ký" /> : activeClass ? <><h2>{activeClass.subject_name}</h2><p className="registration-class-code">{activeClass.class_code}</p><dl className="registration-class-facts"><div><dt>Tín chỉ</dt><dd>{activeClass.credits}</dd></div><div><dt>Sĩ số / giới hạn</dt><dd>{activeClass.current_students} / {activeClass.max_students}</dd></div><div><dt>Giảng viên</dt><dd>{activeClass.lecturer_name || 'Chưa phân công'}</dd></div></dl><h3 className="h6">Lịch học</h3><ClassSchedule schedules={activeClass.schedules} /><div className="registration-class-action"><span>{activeRestriction || 'Kiểm tra lịch học trước khi đăng ký.'}</span><button className={`btn ${activeEnrolled ? 'btn-outline-secondary' : 'btn-primary'}`} disabled={busy || activeEnrolled || activeFull || Boolean(activeRestriction)} onClick={() => handleEnroll(activeClass.id)}>{activeLabel}</button></div></> : <div className="empty-state"><i aria-hidden="true" className="bi bi-journal" /><strong>{error ? 'Chưa tải được danh sách' : 'Không có lớp phù hợp'}</strong><span>Thử đổi học kỳ hoặc từ khóa tìm kiếm.</span></div>}
+        </section><section className="card enrollment-summary"><div className="card-header-styled"><h5>Học phần đã đăng ký</h5><span className="badge-soft-primary">{myEnrollments.length} lớp</span></div><div className="registration-progress"><div className="credit-count">{totalCredits}<small> / {maxCredits || '—'} tín chỉ</small></div><p>{period ? `Mục tiêu tối thiểu ${minCredits} TC · Tối đa ${maxCredits} TC` : 'Giới hạn được hiển thị khi đợt đăng ký mở.'}</p><div className="credit-track" role="progressbar" aria-label="Tín chỉ đã đăng ký so với giới hạn" aria-valuenow={Math.round(progressPercent)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progressPercent}%` }} /></div></div>
+        {myEnrollments.map(e => { const restriction = enrollmentRestriction(e, period); return <div key={e.enrollment_id} className="enrollment-row"><div className="d-flex justify-content-between gap-2 align-items-start"><h3>{e.subject_name}</h3><button className="icon-button" aria-label={`Hủy đăng ký ${e.subject_name}`} disabled={busy || Boolean(restriction)} title={restriction || 'Hủy đăng ký'} onClick={() => handleCancelEnrollment(e.enrollment_id)}><i className="bi bi-x-lg" aria-hidden="true" /></button></div><p>{e.class_code} · {e.credits} tín chỉ</p>{restriction && <small className="d-block text-muted mb-2">Không thể hủy: {restriction.toLowerCase()}.</small>}<ClassSchedule schedules={e.schedules} /></div>; })}
+        {!myEnrollments.length && <div className="empty-state"><strong>Chưa có học phần</strong><span>Chọn lớp ở danh sách để bắt đầu kế hoạch học kỳ.</span></div>}
+        <div className="enrollment-links"><button className="btn btn-outline-primary" onClick={() => navigate('/student/timetable')}><i aria-hidden="true" className="bi bi-calendar3 me-2" />Xem thời khóa biểu</button><button className="btn btn-outline-secondary" onClick={() => navigate('/student/grades')}>Kết quả & thi lại</button></div></section></div></div>
+    </div>;
 };
-
 export default StudentRegistration;

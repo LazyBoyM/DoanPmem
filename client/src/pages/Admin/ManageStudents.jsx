@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react';
+import RecordActions from '../../components/RecordActions';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import LoadingState from '../../components/LoadingState';
+import AccessibleDialog from '../../components/AccessibleDialog';
+import { useFeedback } from '../../context/feedback-context';
+import { useCallback, useEffect, useState } from 'react';
 import StudentDetails from '../../components/StudentDetails';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 
 const ManageStudents = () => {
+    const { notify, confirm } = useFeedback();
     const [students, setStudents] = useState([]);
     const [detailStudent, setDetailStudent] = useState(null);
     const [programs, setPrograms] = useState([]);
@@ -31,12 +37,9 @@ const ManageStudents = () => {
         password: ''
     });
 
-    useEffect(() => {
-        fetchData();
-    }, []);
 
-    async function fetchData() {
-        setLoading(true);
+
+    const fetchData = useCallback(async () => {
         try {
             const [studentsRes, programsRes] = await Promise.all([
                 axiosClient.get('/admin/students'),
@@ -45,11 +48,17 @@ const ManageStudents = () => {
             if (studentsRes.success) setStudents(studentsRes.data);
             if (programsRes.success) setPrograms(programsRes.data);
         } catch (err) {
-            console.error('Lỗi nạp dữ liệu sinh viên:', err);
+            notify(err.response?.data?.message || 'Lỗi nạp dữ liệu sinh viên: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         } finally {
             setLoading(false);
         }
-    };
+    }, [notify]);
+
+    useEffect(() => {
+        // HTTP responses update state after the request settles.
+        // eslint-disable-next-line react/set-state-in-effect
+        fetchData();
+    }, [fetchData]);
 
     const handleOpenAdd = () => {
         setIsEditing(false);
@@ -95,49 +104,49 @@ const ManageStudents = () => {
             if (isEditing) {
                 const res = await axiosClient.put(`/admin/students/${currentId}`, formData);
                 if (res.success) {
-                    alert('Cập nhật thông tin sinh viên thành công!');
+                    notify('Cập nhật thông tin sinh viên thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             } else {
                 const res = await axiosClient.post('/admin/students', formData);
                 if (res.success) {
-                    alert('Thêm sinh viên mới thành công!');
+                    notify('Thêm sinh viên mới thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+            notify(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.', 'danger');
         }
     };
 
     const handleDelete = async (id, code, name) => {
-        if (!window.confirm(`Bạn có chắc chắn muốn xóa sinh viên ${name} (${code})?`)) return;
+        if (!await confirm(`Bạn có chắc chắn muốn xóa sinh viên ${name} (${code})?`)) return;
         try {
             const res = await axiosClient.delete(`/admin/students/${id}`);
             if (res.success) {
-                alert('Xóa sinh viên thành công!');
+                notify('Xóa sinh viên thành công!', 'success');
                 fetchData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi xóa sinh viên.');
+            notify(err.response?.data?.message || 'Lỗi xóa sinh viên.', 'danger');
         }
     };
 
     const handleResetPassword = async (userId, studentCode) => {
         if (!userId) {
-            alert('Không tìm thấy thông tin tài khoản của sinh viên.');
+            notify('Không tìm thấy thông tin tài khoản của sinh viên.');
             return;
         }
-        if (!window.confirm(`Đặt lại mật khẩu cho sinh viên ${studentCode} về mặc định (123456)?`)) return;
+        if (!await confirm(`Đặt lại mật khẩu cho sinh viên ${studentCode} về mặc định (123456)?`)) return;
         try {
             const res = await axiosClient.put(`/admin/users/${userId}/reset-password`);
             if (res.success) {
-                alert(res.message || 'Đặt lại mật khẩu thành công.');
+                notify(res.message || 'Đặt lại mật khẩu thành công.');
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.');
+            notify(err.response?.data?.message || 'Lỗi đặt lại mật khẩu.', 'danger');
         }
     };
 
@@ -150,7 +159,7 @@ const ManageStudents = () => {
                 fetchData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi thay đổi trạng thái.');
+            notify(err.response?.data?.message || 'Lỗi thay đổi trạng thái.', 'danger');
         }
     };
 
@@ -158,8 +167,8 @@ const ManageStudents = () => {
         try {
             await downloadFile('/reports/export-students-excel', 'Danh_sach_sinh_vien.xlsx');
         } catch (err) {
-            console.error('Lỗi tải file Excel:', err);
-            alert('Không thể tải file Excel. Vui lòng kiểm tra lại server.');
+            notify(err.response?.data?.message || 'Lỗi tải file Excel: Vui lòng dùng nút làm mới để thử lại.', 'danger');
+            notify('Không thể tải file Excel. Vui lòng kiểm tra lại server.');
         }
     };
 
@@ -173,46 +182,40 @@ const ManageStudents = () => {
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                {/* Top Header */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-backpack text-primary me-2"></i>Quản Lý Hồ Sơ Sinh Viên
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Hồ sơ sinh viên
+                        </h1>
                         <p className="text-muted small mb-0">
                             Tra cứu, thêm mới, sửa đổi hồ sơ sinh viên, quản lý tài khoản và xuất danh sách
                         </p>
                     </div>
                     <div className="d-flex gap-2">
                         <button className="btn btn-success btn-sm" onClick={handleExportExcel}>
-                            <i className="bi bi-file-earmark-excel me-1"></i> Xuất File Excel
+                            <i aria-hidden="true" className="bi bi-file-earmark-excel me-1"></i> Xuất Excel
                         </button>
                         <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
-                            <i className="bi bi-person-plus me-1"></i> Thêm Sinh Viên Mới
+                            <i aria-hidden="true" className="bi bi-person-plus me-1"></i> Thêm sinh viên
                         </button>
                     </div>
-                </div>
-
-                {/* Filter & Search */}
-                <div className="row g-3 mb-4">
+                </>} filters={<>
                     <div className="col-md-7">
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i className="bi bi-search"></i>
+                                <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                placeholder="Tìm kiếm theo mã SV, họ tên hoặc lớp sinh hoạt..."
+                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã SV, họ tên hoặc lớp sinh hoạt..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
                     <div className="col-md-5">
-                        <select
-                            className="form-select"
+                        <select aria-label="Lọc phạm vi danh sách"                             className="form-select"
                             value={filterProgram}
                             onChange={(e) => setFilterProgram(e.target.value)}
                         >
@@ -222,42 +225,37 @@ const ManageStudents = () => {
                             ))}
                         </select>
                     </div>
-                </div>
-
-                {/* Counter */}
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                </>} sheetTitle="Danh sách sinh viên" filterTitle="Tra cứu sinh viên" summary={<>
                     <span className="badge bg-light text-dark border px-3 py-2">
                         Hiển thị <b>{filteredStudents.length}</b> / <b>{students.length}</b> sinh viên
                     </span>
-                </div>
-
-                {/* Table */}
-                <div className="table-container-responsive">
-                    <table className="table-modern text-center align-middle">
+                </>}>
+<div className="table-container-responsive">
+                    <table className="table-modern directory-table text-center align-middle">
                         <thead>
                             <tr>
-                                <th>STT</th>
-                                <th>Mã SV</th>
-                                <th className="text-start">Họ và Tên</th>
-                                <th>Lớp SH</th>
-                                <th>Chương Trình Đào Tạo</th>
-                                <th>Liên Hệ</th>
-                                <th>Trạng Thái</th>
-                                <th>Thao Tác</th>
+                                <th scope="col">STT</th>
+                                <th scope="col">Mã SV</th>
+                                <th scope="col" className="text-start">Họ và tên</th>
+                                <th scope="col">Lớp SH</th>
+                                <th scope="col">Chương trình đào tạo</th>
+                                <th scope="col">Liên Hệ</th>
+                                <th scope="col">Trạng thái</th>
+                                <th scope="col">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                        <LoadingState compact />
                                         Đang tải dữ liệu sinh viên...
                                     </td>
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <i className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
+                                        <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
                                         Không tìm thấy sinh viên nào phù hợp.
                                     </td>
                                 </tr>
@@ -286,8 +284,8 @@ const ManageStudents = () => {
                                             <div className="text-muted" style={{ fontSize: '0.75rem' }}>Khóa: {st.academic_year || 'K74'}</div>
                                         </td>
                                         <td className="text-start small">
-                                            <div><i className="bi bi-envelope me-1 text-muted"></i>{st.email || '---'}</div>
-                                            <div><i className="bi bi-telephone me-1 text-muted"></i>{st.phone || '---'}</div>
+                                            <div><i aria-hidden="true" className="bi bi-envelope me-1 text-muted"></i>{st.email || '---'}</div>
+                                            <div><i aria-hidden="true" className="bi bi-telephone me-1 text-muted"></i>{st.phone || '---'}</div>
                                         </td>
                                         <td>
                                             <span className={`badge ${st.status === 1 ? 'bg-success' : 'bg-danger'}`}>
@@ -295,31 +293,31 @@ const ManageStudents = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="d-flex justify-content-center gap-1">
+                                            <RecordActions label={st.full_name || st.subject_name || st.username || st.class_code}>
                                                 <button className="btn btn-outline-info btn-sm px-2 py-1" title="Xem thông tin sinh viên" aria-label={`Xem thông tin ${st.full_name}`} onClick={() => setDetailStudent(st)}><i className="bi bi-eye" aria-hidden="true" /></button>
 
                                                 <button
                                                     className="btn btn-outline-warning btn-sm px-2 py-1"
-                                                    title="Đặt lại mật khẩu về 123456"
+                                                    title="Đặt lại mật khẩu về 123456" aria-label="Đặt lại mật khẩu về 123456"
                                                     onClick={() => handleResetPassword(st.user_id, st.student_code)}
                                                 >
-                                                    <i className="bi bi-key"></i> Mật khẩu
+                                                    <i aria-hidden="true" className="bi bi-key"></i> Mật khẩu
                                                 </button>
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${st.status === 1 ? 'btn-outline-secondary' : 'btn-outline-success'}`}
                                                     title={st.status === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                                     onClick={() => handleToggleStatus(st.user_id, st.status)}
                                                 >
-                                                    <i className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i> {st.status === 1 ? 'Khóa' : 'Mở khóa'}
+                                                    <i aria-hidden="true" className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i> {st.status === 1 ? 'Khóa' : 'Mở khóa'}
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-danger btn-sm px-2 py-1"
-                                                    title="Xóa hồ sơ sinh viên"
+                                                    title="Xóa hồ sơ sinh viên" aria-label="Xóa hồ sơ sinh viên"
                                                     onClick={() => handleDelete(st.id, st.student_code, st.full_name)}
                                                 >
-                                                    <i className="bi bi-trash"></i> Xóa
+                                                    <i aria-hidden="true" className="bi bi-trash"></i> Xóa
                                                 </button>
-                                            </div>
+                                            </RecordActions>
                                         </td>
                                     </tr>
                                 ))
@@ -327,27 +325,28 @@ const ManageStudents = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+
+</RecordWorkspace>
 
             {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
             {/* Modal Thêm/Sửa */}
             {showModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-person-plus text-primary'} me-2`}></i>
-                                    {isEditing ? 'Chỉnh Sửa Hồ Sơ Sinh Viên' : 'Thêm Sinh Viên Mới'}
+                                    <i aria-hidden="true" className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-person-plus text-primary'} me-2`}></i>
+                                    {isEditing ? 'Chỉnh Sửa Hồ Sơ Sinh Viên' : 'Thêm sinh viên'}
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowModal(false)}></button>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body p-4">
                                     <div className="row g-3">
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Mã Sinh Viên *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-1">Mã sinh viên *</label>
+                                            <input id="ManageStudents-field-1"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: 74DCTT25005"
@@ -358,8 +357,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Họ và Tên *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-2">Họ và tên *</label>
+                                            <input id="ManageStudents-field-2"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: Nguyễn Văn An"
@@ -369,8 +368,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Giới Tính</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-3">Giới tính</label>
+                                            <select id="ManageStudents-field-3"
                                                 className="form-select"
                                                 value={formData.gender}
                                                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
@@ -380,8 +379,8 @@ const ManageStudents = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Ngày Sinh</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-4">Ngày sinh</label>
+                                            <input id="ManageStudents-field-4"
                                                 type="date"
                                                 className="form-control"
                                                 value={formData.birth_date}
@@ -389,8 +388,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Số Điện Thoại</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-5">Số điện thoại</label>
+                                            <input id="ManageStudents-field-5"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="09..."
@@ -399,8 +398,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Lớp Sinh Hoạt *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-6">Lớp sinh hoạt *</label>
+                                            <input id="ManageStudents-field-6"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: 2DCTT745"
@@ -410,8 +409,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Chương Trình / Ngành</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-7">Chương trình / ngành</label>
+                                            <select id="ManageStudents-field-7"
                                                 className="form-select"
                                                 value={formData.program_id}
                                                 onChange={(e) => setFormData({ ...formData, program_id: e.target.value })}
@@ -422,8 +421,8 @@ const ManageStudents = () => {
                                             </select>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Khóa Học</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-8">Khóa học</label>
+                                            <input id="ManageStudents-field-8"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: K74"
@@ -432,8 +431,8 @@ const ManageStudents = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Địa Chỉ Thường Trú</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageStudents-field-9">Địa chỉ</label>
+                                            <input id="ManageStudents-field-9"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="Hà Nội,..."
@@ -444,7 +443,7 @@ const ManageStudents = () => {
                                         {!isEditing && (
                                             <div className="col-md-12">
                                                 <div className="p-3 bg-light rounded small text-muted">
-                                                    <i className="bi bi-info-circle text-primary me-1"></i>
+                                                    <i aria-hidden="true" className="bi bi-info-circle text-primary me-1"></i>
                                                     Tài khoản đăng nhập hệ thống sẽ tự động được tạo với <b>Username = Mã sinh viên</b> và <b>Mật khẩu mặc định: 123456</b>.
                                                 </div>
                                             </div>
@@ -454,13 +453,13 @@ const ManageStudents = () => {
                                 <div className="modal-footer bg-light">
                                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>Hủy</button>
                                     <button type="submit" className="btn btn-primary btn-sm px-4">
-                                        <i className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu Thay Đổi' : 'Tạo Sinh Viên'}
+                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu thay đổi' : 'Tạo hồ sơ sinh viên'}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
         </div>
     );

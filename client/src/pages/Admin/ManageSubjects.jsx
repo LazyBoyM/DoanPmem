@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import RecordActions from '../../components/RecordActions';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import LoadingState from '../../components/LoadingState';
+import AccessibleDialog from '../../components/AccessibleDialog';
+import { useFeedback } from '../../context/feedback-context';
+import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 
 const ManageSubjects = () => {
+    const { notify, confirm } = useFeedback();
     const [subjects, setSubjects] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,12 +30,9 @@ const ManageSubjects = () => {
         prerequisite_id: ''
     });
 
-    useEffect(() => {
-        fetchData();
-    }, []);
 
-    async function fetchData() {
-        setLoading(true);
+
+    const fetchData = useCallback(async () => {
         try {
             const [subRes, deptRes] = await Promise.all([
                 axiosClient.get('/admin/subjects'),
@@ -38,11 +41,17 @@ const ManageSubjects = () => {
             if (subRes.success) setSubjects(subRes.data);
             if (deptRes.success) setDepartments(deptRes.data);
         } catch (err) {
-            console.error('Lỗi nạp dữ liệu môn học:', err);
+            notify(err.response?.data?.message || 'Lỗi nạp dữ liệu môn học: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         } finally {
             setLoading(false);
         }
-    };
+    }, [notify]);
+
+    useEffect(() => {
+        // HTTP responses update state after the request settles.
+        // eslint-disable-next-line react/set-state-in-effect
+        fetchData();
+    }, [fetchData]);
 
     const handleOpenAdd = () => {
         setIsEditing(false);
@@ -80,33 +89,33 @@ const ManageSubjects = () => {
             if (isEditing) {
                 const res = await axiosClient.put(`/admin/subjects/${currentId}`, formData);
                 if (res.success) {
-                    alert('Cập nhật thông tin môn học thành công!');
+                    notify('Cập nhật thông tin môn học thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             } else {
                 const res = await axiosClient.post('/admin/subjects', formData);
                 if (res.success) {
-                    alert('Thêm môn học mới thành công!');
+                    notify('Thêm môn học mới thành công!', 'success');
                     setShowModal(false);
                     fetchData();
                 }
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+            notify(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.', 'danger');
         }
     };
 
     const handleDelete = async (id, code, name) => {
-        if (!window.confirm(`Bạn có chắc chắn muốn xóa môn học ${name} (${code})?`)) return;
+        if (!await confirm(`Bạn có chắc chắn muốn xóa môn học ${name} (${code})?`)) return;
         try {
             const res = await axiosClient.delete(`/admin/subjects/${id}`);
             if (res.success) {
-                alert('Xóa môn học thành công!');
+                notify('Xóa môn học thành công!', 'success');
                 fetchData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi xóa môn học.');
+            notify(err.response?.data?.message || 'Lỗi xóa môn học.', 'danger');
         }
     };
 
@@ -119,41 +128,35 @@ const ManageSubjects = () => {
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                {/* Header */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-journal-bookmark text-primary me-2"></i>Danh Mục Môn Học & Học Phần
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Danh mục môn học
+                        </h1>
                         <p className="text-muted small mb-0">
                             Quản lý định lượng tín chỉ, số tiết lý thuyết, thực hành và điều kiện môn học tiên quyết
                         </p>
                     </div>
                     <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
-                        <i className="bi bi-plus-circle me-1"></i> Thêm Môn Học Mới
+                        <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Thêm môn học
                     </button>
-                </div>
-
-                {/* Filter & Search */}
-                <div className="row g-3 mb-4">
+                </>} filters={<>
                     <div className="col-md-7">
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i className="bi bi-search"></i>
+                                <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                placeholder="Tìm kiếm theo mã môn học hoặc tên môn học..."
+                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã môn học hoặc tên môn học..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
                     <div className="col-md-5">
-                        <select
-                            className="form-select"
+                        <select aria-label="Lọc phạm vi danh sách"                             className="form-select"
                             value={filterDept}
                             onChange={(e) => setFilterDept(e.target.value)}
                         >
@@ -163,42 +166,37 @@ const ManageSubjects = () => {
                             ))}
                         </select>
                     </div>
-                </div>
-
-                {/* Counter */}
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                </>} sheetTitle="Danh sách môn học" filterTitle="Tra cứu môn học" summary={<>
                     <span className="badge bg-light text-dark border px-3 py-2">
                         Hiển thị <b>{filteredSubjects.length}</b> / <b>{subjects.length}</b> môn học
                     </span>
-                </div>
-
-                {/* Table */}
-                <div className="table-container-responsive">
+                </>}>
+<div className="table-container-responsive">
                     <table className="table-modern text-center align-middle">
                         <thead>
                             <tr>
-                                <th>STT</th>
-                                <th>Mã Môn</th>
-                                <th className="text-start">Tên Môn Học</th>
-                                <th>Số Tín Chỉ</th>
-                                <th>Lý Thuyết / Thực Hành</th>
-                                <th>Khoa Phụ Trách</th>
-                                <th>Môn Tiên Quyết</th>
-                                <th>Thao Tác</th>
+                                <th scope="col">STT</th>
+                                <th scope="col">Mã Môn</th>
+                                <th scope="col" className="text-start">Tên Môn Học</th>
+                                <th scope="col">Số Tín Chỉ</th>
+                                <th scope="col">Lý Thuyết / Thực Hành</th>
+                                <th scope="col">Khoa Phụ Trách</th>
+                                <th scope="col">Môn Tiên Quyết</th>
+                                <th scope="col">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                        <LoadingState compact />
                                         Đang tải danh mục môn học...
                                     </td>
                                 </tr>
                             ) : filteredSubjects.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="py-4 text-muted">
-                                        <i className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
+                                        <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
                                         Không tìm thấy môn học nào phù hợp.
                                     </td>
                                 </tr>
@@ -234,7 +232,7 @@ const ManageSubjects = () => {
                                                 <div className="d-flex flex-wrap gap-1 justify-content-center">
                                                     {sub.prerequisites.map((pName, pIdx) => (
                                                         <span key={pIdx} className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 small">
-                                                            <i className="bi bi-link-45deg me-1"></i>{pName}
+                                                            <i aria-hidden="true" className="bi bi-link-45deg me-1"></i>{pName}
                                                         </span>
                                                     ))}
                                                 </div>
@@ -243,22 +241,22 @@ const ManageSubjects = () => {
                                             )}
                                         </td>
                                         <td>
-                                            <div className="d-flex justify-content-center gap-1">
+                                            <RecordActions label={sub.full_name || sub.subject_name || sub.username || sub.class_code}>
                                                 <button
                                                     className="btn btn-outline-primary btn-sm px-2 py-1"
-                                                    title="Chỉnh sửa môn học"
+                                                    title="Chỉnh sửa môn học" aria-label="Chỉnh sửa môn học"
                                                     onClick={() => handleOpenEdit(sub)}
                                                 >
-                                                    <i className="bi bi-pencil-square"></i>
+                                                    <i aria-hidden="true" className="bi bi-pencil-square"></i>
                                                 </button>
                                                 <button
                                                     className="btn btn-outline-danger btn-sm px-2 py-1"
-                                                    title="Xóa môn học"
+                                                    title="Xóa môn học" aria-label="Xóa môn học"
                                                     onClick={() => handleDelete(sub.id, sub.subject_code, sub.subject_name)}
                                                 >
-                                                    <i className="bi bi-trash"></i>
+                                                    <i aria-hidden="true" className="bi bi-trash"></i>
                                                 </button>
-                                            </div>
+                                            </RecordActions>
                                         </td>
                                     </tr>
                                 ))
@@ -266,26 +264,27 @@ const ManageSubjects = () => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+
+</RecordWorkspace>
 
             {/* Modal Thêm/Sửa Môn Học */}
             {showModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-plus-circle text-primary'} me-2`}></i>
-                                    {isEditing ? 'Chỉnh Sửa Thông Tin Môn Học' : 'Thêm Môn Học Mới'}
+                                    <i aria-hidden="true" className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-plus-circle text-primary'} me-2`}></i>
+                                    {isEditing ? 'Chỉnh sửa môn học' : 'Thêm môn học'}
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowModal(false)}></button>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body p-4">
                                     <div className="row g-3">
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Mã Môn Học *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-1">Mã Môn Học *</label>
+                                            <input id="ManageSubjects-field-1"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: INT1006"
@@ -296,8 +295,8 @@ const ManageSubjects = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Tên Môn Học *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-2">Tên Môn Học *</label>
+                                            <input id="ManageSubjects-field-2"
                                                 type="text"
                                                 className="form-control"
                                                 placeholder="VD: Kiến Trúc Máy Tính"
@@ -307,8 +306,8 @@ const ManageSubjects = () => {
                                             />
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Số Tín Chỉ *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-3">Số Tín Chỉ *</label>
+                                            <input id="ManageSubjects-field-3"
                                                 type="number"
                                                 className="form-control"
                                                 min="1"
@@ -319,8 +318,8 @@ const ManageSubjects = () => {
                                             />
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Tiết Lý Thuyết</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-4">Tiết Lý Thuyết</label>
+                                            <input id="ManageSubjects-field-4"
                                                 type="number"
                                                 className="form-control"
                                                 min="0"
@@ -329,8 +328,8 @@ const ManageSubjects = () => {
                                             />
                                         </div>
                                         <div className="col-md-4">
-                                            <label className="form-label small fw-bold">Tiết Thực Hành</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-5">Tiết Thực Hành</label>
+                                            <input id="ManageSubjects-field-5"
                                                 type="number"
                                                 className="form-control"
                                                 min="0"
@@ -339,8 +338,8 @@ const ManageSubjects = () => {
                                             />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label small fw-bold">Khoa / Bộ Môn Phụ Trách</label>
-                                            <select
+                                            <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-6">Khoa / Bộ Môn Phụ Trách</label>
+                                            <select id="ManageSubjects-field-6"
                                                 className="form-select"
                                                 value={formData.department_id}
                                                 onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
@@ -352,8 +351,8 @@ const ManageSubjects = () => {
                                         </div>
                                         {!isEditing && (
                                             <div className="col-md-6">
-                                                <label className="form-label small fw-bold">Môn Tiên Quyết (Nếu có)</label>
-                                                <select
+                                                <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-7">Môn Tiên Quyết (Nếu có)</label>
+                                                <select id="ManageSubjects-field-7"
                                                     className="form-select"
                                                     value={formData.prerequisite_id}
                                                     onChange={(e) => setFormData({ ...formData, prerequisite_id: e.target.value })}
@@ -370,13 +369,13 @@ const ManageSubjects = () => {
                                 <div className="modal-footer bg-light">
                                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>Hủy</button>
                                     <button type="submit" className="btn btn-primary btn-sm px-4">
-                                        <i className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu Thay Đổi' : 'Tạo Môn Học'}
+                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu thay đổi' : 'Tạo môn học'}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
         </div>
     );

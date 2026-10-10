@@ -28,9 +28,9 @@ export default function Sidebar({ open, onClose }) {
                 <span className="brand-icon"><i className="bi bi-mortarboard-fill" aria-hidden="true" /></span>
                 <span><span className="brand-name">EduPortal<span className="brand-dot">.</span></span><span className="brand-sub">Quản lý đào tạo</span></span>
             </NavLink>
-            <button className="icon-button sidebar-close" onClick={onClose} aria-label="Đóng menu"><i className="bi bi-x-lg" /></button>
+            <button className="icon-button sidebar-close" onClick={onClose} aria-label="Đóng menu"><i aria-hidden="true" className="bi bi-x-lg" /></button>
         </div>
-        <div className="workspace-label"><span className="workspace-mark"><i className="bi bi-buildings" /></span><div><strong>Cổng đào tạo</strong><small>{roles[user.role]}</small></div><i className="bi bi-chevron-expand ms-auto text-muted" aria-hidden="true" /></div>
+        <div className="workspace-label"><span className="workspace-mark"><i aria-hidden="true" className="bi bi-buildings" /></span><div><strong>Cổng đào tạo</strong><small>{roles[user.role]}</small></div><i className="bi bi-chevron-expand ms-auto text-muted" aria-hidden="true" /></div>
         <nav className="sidebar-nav-container">
             {(menus[user.role] || []).map(section => <div key={section.title}>
                 <div className="nav-section-title">{section.title}</div>
@@ -42,7 +42,7 @@ export default function Sidebar({ open, onClose }) {
         </nav>
         <div className="sidebar-footer"><div className="user-profile-widget">
             <div className="user-avatar-circle">{initials}</div><div className="user-info-text"><div className="user-display-name" title={user.full_name || user.username}>{user.full_name || user.username}</div><span className="user-display-role">{roles[user.role]}</span></div>
-            <button className="btn-sidebar-logout" onClick={logout} title="Đăng xuất" aria-label="Đăng xuất"><i className="bi bi-box-arrow-right" /></button>
+            <button className="btn-sidebar-logout" onClick={logout} title="Đăng xuất" aria-label="Đăng xuất"><i aria-hidden="true" className="bi bi-box-arrow-right" /></button>
         </div></div>
     </aside>;
 }

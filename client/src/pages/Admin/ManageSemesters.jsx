@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
+import RecordWorkspace from '../../components/RecordWorkspace';
+import AccessibleDialog from '../../components/AccessibleDialog';
+import { useFeedback } from '../../context/feedback-context';
+import { useCallback, useEffect, useState } from 'react';
 import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
 
 const ManageSemesters = () => {
+    const { notify } = useFeedback();
     const { refresh } = useAcademic();
     const [activeTab, setActiveTab] = useState('periods'); // 'periods' | 'semesters' | 'programs'
 
@@ -43,7 +47,7 @@ const ManageSemesters = () => {
         duration_years: 4.0
     });
 
-    async function fetchAllData() {
+    const fetchAllData = useCallback(async () => {
         try {
             const [semRes, periodRes, progRes, deptRes] = await Promise.all([
                 axiosClient.get('/admin/semesters'),
@@ -56,15 +60,17 @@ const ManageSemesters = () => {
             if (progRes.success) setPrograms(progRes.data);
             if (deptRes.success) setDepartments(deptRes.data);
         } catch (err) {
-            console.error('Lỗi lấy dữ liệu cấu hình đào tạo:', err);
+            notify(err.response?.data?.message || 'Lỗi lấy dữ liệu cấu hình đào tạo: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         }
-    };
+    }, [notify]);
 
     useEffect(() => {
         // State updates occur after the HTTP response, not synchronously in this effect.
         // eslint-disable-next-line react/set-state-in-effect
         fetchAllData();
-    }, []);
+    }, [fetchAllData]);
+
+
 
     // Toggle đợt đăng ký
     const handleTogglePeriod = async (id) => {
@@ -75,7 +81,7 @@ const ManageSemesters = () => {
                 fetchAllData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi thay đổi trạng thái đợt đăng ký.');
+            notify(err.response?.data?.message || 'Lỗi thay đổi trạng thái đợt đăng ký.', 'danger');
         }
     };
 
@@ -85,11 +91,11 @@ const ManageSemesters = () => {
             const res = await axiosClient.put(`/admin/semesters/${id}/active`);
             if (res.success) {
                 refresh();
-                alert('Đã kích hoạt học kỳ hiện hành thành công.');
+                notify('Đã kích hoạt học kỳ hiện hành thành công.', 'success');
                 fetchAllData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi kích hoạt học kỳ.');
+            notify(err.response?.data?.message || 'Lỗi kích hoạt học kỳ.', 'danger');
         }
     };
 
@@ -100,12 +106,12 @@ const ManageSemesters = () => {
             const res = await axiosClient.post('/admin/registration-periods', periodForm);
             if (res.success) {
                 refresh();
-                alert('Tạo đợt đăng ký học phần thành công!');
+                notify('Tạo đợt đăng ký học phần thành công!', 'success');
                 setShowPeriodModal(false);
                 fetchAllData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi tạo đợt đăng ký.');
+            notify(err.response?.data?.message || 'Lỗi tạo đợt đăng ký.', 'danger');
         }
     };
 
@@ -116,12 +122,12 @@ const ManageSemesters = () => {
             const res = await axiosClient.post('/admin/semesters', semesterForm);
             if (res.success) {
                 refresh();
-                alert('Tạo học kỳ mới thành công!');
+                notify('Tạo học kỳ mới thành công!', 'success');
                 setShowSemesterModal(false);
                 fetchAllData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi tạo học kỳ.');
+            notify(err.response?.data?.message || 'Lỗi tạo học kỳ.', 'danger');
         }
     };
 
@@ -132,38 +138,33 @@ const ManageSemesters = () => {
             const res = await axiosClient.post('/admin/programs', programForm);
             if (res.success) {
                 refresh();
-                alert('Tạo chương trình đào tạo thành công!');
+                notify('Tạo chương trình đào tạo thành công!', 'success');
                 setShowProgramModal(false);
                 fetchAllData();
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Lỗi tạo chương trình.');
+            notify(err.response?.data?.message || 'Lỗi tạo chương trình.', 'danger');
         }
     };
 
     return (
         <div className="admin-pane">
-            <div className="card shadow-sm border-0 p-4">
-                {/* Header */}
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <RecordWorkspace heading={<>
                     <div>
-                        <h4 className="fw-bold mb-1">
-                            <i className="bi bi-calendar2-range text-primary me-2"></i>Quản Lý Năm Học, Học Kỳ & Đợt Đăng Ký
-                        </h4>
+                        <h1 className="fw-bold mb-1">
+                            Học kỳ & đăng ký
+                        </h1>
                         <p className="text-muted small mb-0">
                             Cấu hình học kỳ hiện hành, đóng/mở đợt đăng ký tín chỉ và chương trình đào tạo
                         </p>
                     </div>
-                </div>
-
-                {/* Tabs Navigation */}
-                <ul className="nav nav-pills mb-4 border-bottom pb-3">
+                </>} filters={<ul className="nav nav-pills mb-4 border-bottom pb-3">
                     <li className="nav-item me-2">
                         <button
                             className={`nav-link ${activeTab === 'periods' ? 'active' : 'bg-light text-dark'}`}
                             onClick={() => setActiveTab('periods')}
                         >
-                            <i className="bi bi-toggle-on me-2"></i>Đợt Đăng Ký Học Phần
+                            <i aria-hidden="true" className="bi bi-toggle-on me-2"></i>Đợt Đăng Ký Học Phần
                         </button>
                     </li>
                     <li className="nav-item me-2">
@@ -171,7 +172,7 @@ const ManageSemesters = () => {
                             className={`nav-link ${activeTab === 'semesters' ? 'active' : 'bg-light text-dark'}`}
                             onClick={() => setActiveTab('semesters')}
                         >
-                            <i className="bi bi-calendar3 me-2"></i>Năm Học & Học Kỳ
+                            <i aria-hidden="true" className="bi bi-calendar3 me-2"></i>Năm Học & Học Kỳ
                         </button>
                     </li>
                     <li className="nav-item">
@@ -179,10 +180,10 @@ const ManageSemesters = () => {
                             className={`nav-link ${activeTab === 'programs' ? 'active' : 'bg-light text-dark'}`}
                             onClick={() => setActiveTab('programs')}
                         >
-                            <i className="bi bi-diagram-3 me-2"></i>Chương Trình Đào Tạo
+                            <i aria-hidden="true" className="bi bi-diagram-3 me-2"></i>Chương trình đào tạo
                         </button>
                     </li>
-                </ul>
+                </ul>} filterTitle="Kế hoạch đào tạo" sheetTitle={activeTab === 'periods' ? 'Đợt đăng ký học phần' : activeTab === 'semesters' ? 'Sổ học kỳ' : 'Chương trình đào tạo'}>
 
                 {/* TAB 1: ĐỢT ĐĂNG KÝ HỌC PHẦN */}
                 {activeTab === 'periods' && (
@@ -192,20 +193,20 @@ const ManageSemesters = () => {
                                 Tổng cộng: <b>{periods.length}</b> đợt đăng ký
                             </span>
                             <button className="btn btn-primary btn-sm" onClick={() => setShowPeriodModal(true)}>
-                                <i className="bi bi-plus-circle me-1"></i> Tạo Đợt ĐKHP Mới
+                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Đợt ĐKHP Mới
                             </button>
                         </div>
                         <div className="table-container-responsive">
                             <table className="table-modern text-center align-middle">
                                 <thead>
                                     <tr>
-                                        <th>STT</th>
-                                        <th className="text-start">Tên Đợt Đăng Ký</th>
-                                        <th>Học Kỳ Áp Dụng</th>
-                                        <th>Thời Gian Bắt Đầu - Kết Thúc</th>
-                                        <th>Hạn Mức Tín Chỉ</th>
-                                        <th>Cổng Đăng Ký</th>
-                                        <th>Thao Tác</th>
+                                        <th scope="col">STT</th>
+                                        <th scope="col" className="text-start">Tên Đợt Đăng Ký</th>
+                                        <th scope="col">Học Kỳ Áp Dụng</th>
+                                        <th scope="col">Thời Gian Bắt Đầu - Kết Thúc</th>
+                                        <th scope="col">Hạn Mức Tín Chỉ</th>
+                                        <th scope="col">Cổng Đăng Ký</th>
+                                        <th scope="col">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -219,8 +220,8 @@ const ManageSemesters = () => {
                                                 </span>
                                             </td>
                                             <td className="small text-muted">
-                                                <div><i className="bi bi-clock me-1 text-success"></i>{rp.start_time}</div>
-                                                <div><i className="bi bi-clock-history me-1 text-danger"></i>{rp.end_time}</div>
+                                                <div><i aria-hidden="true" className="bi bi-clock me-1 text-success"></i>{rp.start_time}</div>
+                                                <div><i aria-hidden="true" className="bi bi-clock-history me-1 text-danger"></i>{rp.end_time}</div>
                                             </td>
                                             <td>
                                                 <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
@@ -237,7 +238,7 @@ const ManageSemesters = () => {
                                                     className={`btn btn-sm ${rp.is_active === 1 ? 'btn-outline-danger' : 'btn-outline-success'}`}
                                                     onClick={() => handleTogglePeriod(rp.id)}
                                                 >
-                                                    <i className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
+                                                    <i aria-hidden="true" className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
                                                     {rp.is_active === 1 ? 'Đóng Đợt' : 'Mở Đợt'}
                                                 </button>
                                             </td>
@@ -257,20 +258,20 @@ const ManageSemesters = () => {
                                 Danh mục các kỳ học trong trường
                             </span>
                             <button className="btn btn-primary btn-sm" onClick={() => setShowSemesterModal(true)}>
-                                <i className="bi bi-plus-circle me-1"></i> Tạo Học Kỳ Mới
+                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Học Kỳ Mới
                             </button>
                         </div>
                         <div className="table-container-responsive">
                             <table className="table-modern text-center align-middle">
                                 <thead>
                                     <tr>
-                                        <th>STT</th>
-                                        <th>Mã Học Kỳ</th>
-                                        <th className="text-start">Tên Học Kỳ</th>
-                                        <th>Năm Học</th>
-                                        <th>Thời Gian Bắt Đầu - Kết Thúc</th>
-                                        <th>Trạng Thái</th>
-                                        <th>Thao Tác</th>
+                                        <th scope="col">STT</th>
+                                        <th scope="col">Mã Học Kỳ</th>
+                                        <th scope="col" className="text-start">Tên Học Kỳ</th>
+                                        <th scope="col">Năm Học</th>
+                                        <th scope="col">Thời Gian Bắt Đầu - Kết Thúc</th>
+                                        <th scope="col">Trạng thái</th>
+                                        <th scope="col">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -294,7 +295,7 @@ const ManageSemesters = () => {
                                                         className="btn btn-outline-primary btn-sm"
                                                         onClick={() => handleSetActiveSemester(s.id)}
                                                     >
-                                                        <i className="bi bi-check2-circle me-1"></i> Đặt Làm Hiện Hành
+                                                        <i aria-hidden="true" className="bi bi-check2-circle me-1"></i> Đặt Làm Hiện Hành
                                                     </button>
                                                 )}
                                             </td>
@@ -314,20 +315,20 @@ const ManageSemesters = () => {
                                 Các chuyên ngành đào tạo chính quy
                             </span>
                             <button className="btn btn-primary btn-sm" onClick={() => setShowProgramModal(true)}>
-                                <i className="bi bi-plus-circle me-1"></i> Tạo Chương Trình Mới
+                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Chương Trình Mới
                             </button>
                         </div>
                         <div className="table-container-responsive">
                             <table className="table-modern text-center align-middle">
                                 <thead>
                                     <tr>
-                                        <th>STT</th>
-                                        <th>Mã Ngành</th>
-                                        <th className="text-start">Tên Ngành / Chương Trình</th>
-                                        <th>Khoa Trực Thuộc</th>
-                                        <th>Tổng Tín Chỉ</th>
-                                        <th>Thời Gian Đào Tạo</th>
-                                        <th>Số Sinh Viên</th>
+                                        <th scope="col">STT</th>
+                                        <th scope="col">Mã Ngành</th>
+                                        <th scope="col" className="text-start">Tên Ngành / Chương Trình</th>
+                                        <th scope="col">Khoa Trực Thuộc</th>
+                                        <th scope="col">Tổng Tín Chỉ</th>
+                                        <th scope="col">Thời Gian Đào Tạo</th>
+                                        <th scope="col">Số Sinh Viên</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -347,24 +348,24 @@ const ManageSemesters = () => {
                         </div>
                     </div>
                 )}
-            </div>
+            </RecordWorkspace>
 
             {/* Modal Tạo Đợt Đăng Ký */}
             {showPeriodModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowPeriodModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className="bi bi-plus-circle text-primary me-2"></i>Tạo Đợt Đăng Ký Học Phần Mới
+                                    <i aria-hidden="true" className="bi bi-plus-circle text-primary me-2"></i>Tạo Đợt Đăng Ký Học Phần Mới
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowPeriodModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowPeriodModal(false)}></button>
                             </div>
                             <form onSubmit={handleCreatePeriod}>
                                 <div className="modal-body p-4">
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Tên Đợt Đăng Ký *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-1">Tên Đợt Đăng Ký *</label>
+                                        <input id="ManageSemesters-field-1"
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: Đợt 1: Đăng ký chính thức HK1"
@@ -374,8 +375,8 @@ const ManageSemesters = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Học Kỳ Áp Dụng *</label>
-                                        <select
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-2">Học Kỳ Áp Dụng *</label>
+                                        <select id="ManageSemesters-field-2"
                                             className="form-select"
                                             value={periodForm.semester_id}
                                             onChange={(e) => setPeriodForm({ ...periodForm, semester_id: e.target.value })}
@@ -387,8 +388,8 @@ const ManageSemesters = () => {
                                     </div>
                                     <div className="row g-2 mb-3">
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Bắt Đầu *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-3">Bắt Đầu *</label>
+                                            <input id="ManageSemesters-field-3"
                                                 type="text"
                                                 className="form-control"
                                                 value={periodForm.start_time}
@@ -396,8 +397,8 @@ const ManageSemesters = () => {
                                             />
                                         </div>
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Kết Thúc *</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-4">Kết Thúc *</label>
+                                            <input id="ManageSemesters-field-4"
                                                 type="text"
                                                 className="form-control"
                                                 value={periodForm.end_time}
@@ -407,8 +408,8 @@ const ManageSemesters = () => {
                                     </div>
                                     <div className="row g-2">
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Số Tín Chỉ Tối Thiểu</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-5">Số Tín Chỉ Tối Thiểu</label>
+                                            <input id="ManageSemesters-field-5"
                                                 type="number"
                                                 className="form-control"
                                                 value={periodForm.min_credits}
@@ -416,8 +417,8 @@ const ManageSemesters = () => {
                                             />
                                         </div>
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Số Tín Chỉ Tối Đa</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-6">Số Tín Chỉ Tối Đa</label>
+                                            <input id="ManageSemesters-field-6"
                                                 type="number"
                                                 className="form-control"
                                                 value={periodForm.max_credits}
@@ -433,25 +434,25 @@ const ManageSemesters = () => {
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
 
             {/* Modal Tạo Học Kỳ */}
             {showSemesterModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowSemesterModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className="bi bi-calendar-plus text-primary me-2"></i>Tạo Học Kỳ Mới
+                                    <i aria-hidden="true" className="bi bi-calendar-plus text-primary me-2"></i>Tạo Học Kỳ Mới
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowSemesterModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowSemesterModal(false)}></button>
                             </div>
                             <form onSubmit={handleCreateSemester}>
                                 <div className="modal-body p-4">
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Mã Học Kỳ *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-7">Mã Học Kỳ *</label>
+                                        <input id="ManageSemesters-field-7"
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: HK2_2026_2027"
@@ -461,8 +462,8 @@ const ManageSemesters = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Tên Học Kỳ *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-8">Tên Học Kỳ *</label>
+                                        <input id="ManageSemesters-field-8"
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: Học kỳ 2 - 2026-2027"
@@ -472,8 +473,8 @@ const ManageSemesters = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Năm Học *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-9">Năm Học *</label>
+                                        <input id="ManageSemesters-field-9"
                                             type="text"
                                             className="form-control"
                                             placeholder="2026-2027"
@@ -484,8 +485,8 @@ const ManageSemesters = () => {
                                     </div>
                                     <div className="row g-2">
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Ngày Bắt Đầu</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-10">Ngày Bắt Đầu</label>
+                                            <input id="ManageSemesters-field-10"
                                                 type="date"
                                                 className="form-control"
                                                 value={semesterForm.start_date}
@@ -493,8 +494,8 @@ const ManageSemesters = () => {
                                             />
                                         </div>
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Ngày Kết Thúc</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-11">Ngày Kết Thúc</label>
+                                            <input id="ManageSemesters-field-11"
                                                 type="date"
                                                 className="form-control"
                                                 value={semesterForm.end_date}
@@ -510,25 +511,25 @@ const ManageSemesters = () => {
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
 
             {/* Modal Tạo Chương Trình */}
             {showProgramModal && (
-                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <AccessibleDialog className="record-editor" onClose={() => setShowProgramModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <h5 className="modal-title fw-bold">
-                                    <i className="bi bi-diagram-3 text-primary me-2"></i>Thêm Chương Trình Đào Tạo
+                                    <i aria-hidden="true" className="bi bi-diagram-3 text-primary me-2"></i>Thêm Chương trình đào tạo
                                 </h5>
-                                <button type="button" className="btn-close" onClick={() => setShowProgramModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowProgramModal(false)}></button>
                             </div>
                             <form onSubmit={handleCreateProgram}>
                                 <div className="modal-body p-4">
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Mã Ngành Đào Tạo *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-12">Mã Ngành Đào Tạo *</label>
+                                        <input id="ManageSemesters-field-12"
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: 7480201"
@@ -538,8 +539,8 @@ const ManageSemesters = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Tên Ngành / Chương Trình *</label>
-                                        <input
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-13">Tên Ngành / Chương Trình *</label>
+                                        <input id="ManageSemesters-field-13"
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: Công nghệ Thông tin"
@@ -549,8 +550,8 @@ const ManageSemesters = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label small fw-bold">Khoa Phụ Trách</label>
-                                        <select
+                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-14">Khoa Phụ Trách</label>
+                                        <select id="ManageSemesters-field-14"
                                             className="form-select"
                                             value={programForm.department_id}
                                             onChange={(e) => setProgramForm({ ...programForm, department_id: e.target.value })}
@@ -562,8 +563,8 @@ const ManageSemesters = () => {
                                     </div>
                                     <div className="row g-2">
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Tổng Số Tín Chỉ</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-15">Tổng Số Tín Chỉ</label>
+                                            <input id="ManageSemesters-field-15"
                                                 type="number"
                                                 className="form-control"
                                                 value={programForm.total_credits}
@@ -571,8 +572,8 @@ const ManageSemesters = () => {
                                             />
                                         </div>
                                         <div className="col-6">
-                                            <label className="form-label small fw-bold">Thời Gian Đào Tạo (Năm)</label>
-                                            <input
+                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-16">Thời Gian Đào Tạo (Năm)</label>
+                                            <input id="ManageSemesters-field-16"
                                                 type="number"
                                                 step="0.5"
                                                 className="form-control"
@@ -589,7 +590,7 @@ const ManageSemesters = () => {
                             </form>
                         </div>
                     </div>
-                </div>
+                </AccessibleDialog>
             )}
         </div>
     );
