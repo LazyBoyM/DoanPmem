@@ -19,4 +19,3 @@ Với cơ sở dữ liệu mới, làm theo hướng dẫn trong `database/READM
 - Backend: `cd server` rồi `npm test`.
 - Frontend: `cd client` rồi `npm run build`, `npm run lint` và `node --test src/pages/Lecturer/gradeBook.test.js`.
 - SQL thực tế: trong `server`, chạy `npm run verify:mysql` với cơ sở dữ liệu đã cấu hình; dữ liệu thử được rollback. Xem phạm vi và điều kiện trong tài liệu chức năng.
-
