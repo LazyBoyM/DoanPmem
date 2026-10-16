@@ -67,6 +67,8 @@ function deleteProfile(student) {
     return endpoint(async (req, store) => {
         const table = student ? 'students' : 'lecturers';
         const row = await requireRow(store, table, req.params.id, 'Hồ sơ');
+        const account = await requireRow(store, 'users', row.user_id, 'Tài khoản');
+        if (account.role === 'ADMIN') fail('Hồ sơ đang gắn tài khoản quản trị viên. Cần thu hồi quyền quản trị trước khi xóa.', 409);
         if (student) {
             for (const e of await store.list('enrollments', { student_id: row.id })) {
                 const cls = await requireRow(store, 'course_classes', e.course_class_id);
@@ -78,6 +80,7 @@ function deleteProfile(student) {
         } else {
             for (const cls of await store.list('course_classes', { lecturer_id: row.id })) await store.update('course_classes', cls.id, { lecturer_id: null });
         }
+        if (student) await store.remove('registration_submissions', { student_id: row.id });
         await store.remove(table, { id: row.id });
         await store.remove('users', { id: row.user_id });
         return ok('Đã xóa hồ sơ và cập nhật dữ liệu liên quan.');
@@ -97,7 +100,7 @@ const getAllLecturers = endpoint(async (_req, store) => {
         return { ...l, username: user?.username, email: user?.email, status: user?.status, department_name: departments.find(d => d.id === l.department_id)?.department_name };
     }) };
 });
-const getAllUsers = endpoint(async (_req, store) => ({ data: (await store.list('users')).filter(u => u.role !== 'ADMIN').map(({ password, ...u }) => u) }));
+const getAllUsers = endpoint(async (_req, store) => ({ data: (await store.list('users')).map(({ password, ...u }) => u) }));
 // A profile is required: standalone accounts are intentionally not created.
 const createUser = endpoint(async () => { fail('Hãy tạo tài khoản cùng hồ sơ tại Quản lý sinh viên hoặc Quản lý giảng viên.'); });
 const toggleUserStatus = endpoint(async (req, store) => {
@@ -124,8 +127,29 @@ const getAllDepartments = endpoint(async (_req, store) => ({ data: await store.l
 const getAllSubjects = endpoint(async (_req, store) => {
     const subjects = await store.list('subjects'), departments = await store.list('departments'), prerequisites = await store.list('prerequisites');
     return { data: subjects.map(s => ({ ...s, department_name: departments.find(d => d.id === s.department_id)?.department_name,
+        prerequisite_ids: prerequisites.filter(p => p.subject_id === s.id).map(p => p.prerequisite_subject_id),
         prerequisites: prerequisites.filter(p => p.subject_id === s.id).map(p => subjects.find(other => other.id === p.prerequisite_subject_id)?.subject_name).filter(Boolean) })) };
 });
+async function savePrerequisites(store, subjectId, body) {
+    if (body.prerequisite_ids === undefined && body.prerequisite_id === undefined) return;
+    const ids = body.prerequisite_ids ?? (body.prerequisite_id ? [body.prerequisite_id] : []);
+    if (!Array.isArray(ids)) fail('Danh sách môn tiên quyết không hợp lệ.');
+    const values = [...new Set(ids.map(id => integer(id, 'Môn tiên quyết')))];
+    const edges = (await store.list('prerequisites')).filter(p => p.subject_id !== subjectId);
+    for (const id of values) {
+        await requireRow(store, 'subjects', id, 'Môn tiên quyết');
+        const visited = new Set();
+        const reaches = current => {
+            if (current === subjectId) return true;
+            if (visited.has(current)) return false;
+            visited.add(current);
+            return edges.filter(p => p.subject_id === current).some(p => reaches(p.prerequisite_subject_id));
+        };
+        if (reaches(id)) fail('Môn tiên quyết tạo vòng lặp hoặc trỏ đến chính môn học.');
+    }
+    await store.remove('prerequisites', { subject_id: subjectId });
+    for (const id of values) await store.insert('prerequisites', { subject_id: subjectId, prerequisite_subject_id: id, min_grade_required: 4 });
+}
 async function subjectFields(store, body) {
     return { subject_name: text(body.subject_name, 'tên môn'), credits: integer(body.credits ?? 3, 'Tín chỉ', 1, 24),
         theory_periods: integer(body.theory_periods ?? 30, 'Tiết lý thuyết', 0, 500), practice_periods: integer(body.practice_periods ?? 15, 'Tiết thực hành', 0, 500),
@@ -137,12 +161,33 @@ const createSubject = endpoint(async (req, store) => {
     const fields = await subjectFields(store, req.body);
     if (req.body.prerequisite_id) await requireRow(store, 'subjects', req.body.prerequisite_id, 'Môn tiên quyết');
     const data = await store.insert('subjects', { subject_code, ...fields });
-    if (req.body.prerequisite_id) await store.insert('prerequisites', { subject_id: data.id, prerequisite_subject_id: Number(req.body.prerequisite_id), min_grade_required: 4 });
+    await savePrerequisites(store, data.id, req.body);
     return { data, message: 'Đã tạo môn học.' };
 }, true);
 const updateSubject = endpoint(async (req, store) => {
     const current = await requireRow(store, 'subjects', req.params.id, 'Môn học');
-    await store.update('subjects', current.id, await subjectFields(store, { ...current, ...req.body }));
+    const fields = await subjectFields(store, { ...current, ...req.body });
+    if (fields.credits !== Number(current.credits)) {
+        const catalog = await store.list('subjects');
+        for (const link of await store.list('program_subjects', { subject_id: current.id })) {
+            const program = await requireRow(store, 'programs', link.program_id);
+            const total = (await store.list('program_subjects', { program_id: program.id })).reduce((sum, row) => sum + (row.subject_id === current.id ? fields.credits : Number(catalog.find(s => s.id === row.subject_id)?.credits || 0)), 0);
+            if (total > program.total_credits) fail('Tín chỉ mới vượt tổng tín chỉ chương trình.');
+        }
+        for (const cls of await store.list('course_classes', { subject_id: current.id })) {
+            for (const enrollment of await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' })) {
+                const plan = await store.one('registration_submissions', { student_id: enrollment.student_id, semester_id: cls.semester_id });
+                if (plan) {
+                    const period = await requireRow(store, 'registration_periods', plan.period_id);
+                    const total = plan.total_credits + fields.credits - Number(current.credits);
+                    if (total < period.min_credits || total > period.max_credits) fail('Tín chỉ mới không phù hợp kế hoạch sinh viên đã chốt.');
+                    await store.update('registration_submissions', plan.id, { total_credits: total });
+                }
+            }
+        }
+    }
+    await savePrerequisites(store, current.id, req.body);
+    await store.update('subjects', current.id, fields);
     return ok('Đã cập nhật môn học.');
 }, true);
 const deleteSubject = endpoint(async (req, store) => {
@@ -150,6 +195,7 @@ const deleteSubject = endpoint(async (req, store) => {
     if ((await store.list('course_classes', { subject_id: subject.id })).length) fail('Môn học đã được sử dụng trong lớp học phần.', 409);
     await store.remove('prerequisites', { subject_id: subject.id });
     await store.remove('prerequisites', { prerequisite_subject_id: subject.id });
+    if ((await store.list('program_subjects', { subject_id: subject.id })).length) fail('Môn học đang thuộc chương trình đào tạo.', 409);
     await store.remove('subjects', { id: subject.id });
     return ok('Đã xóa môn học.');
 }, true);
@@ -255,6 +301,7 @@ const updateClassStatus = endpoint(async (req, store) => {
         const grades = await store.list('grades');
         if (enrollments.some(e => hasGrade(grades.find(g => g.enrollment_id === e.id)))) fail('Lớp đã có điểm hoặc khóa điểm không thể hủy.');
         for (const e of enrollments) {
+            await store.remove('registration_submissions', { student_id: e.student_id, semester_id: cls.semester_id });
             await store.update('enrollments', e.id, { status: 'CANCELLED' });
             await store.remove('resit_attempts', { enrollment_id: e.id });
             await store.remove('grades', { enrollment_id: e.id });

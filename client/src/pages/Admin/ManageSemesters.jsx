@@ -1,3 +1,6 @@
+import RegistrationPlans from '../../components/RegistrationPlans';
+import TrainingEditor, { CurriculumEditor } from '../../components/TrainingEditor';
+import RecordActions from '../../components/RecordActions';
 import RecordWorkspace from '../../components/RecordWorkspace';
 import AccessibleDialog from '../../components/AccessibleDialog';
 import { useFeedback } from '../../context/feedback-context';
@@ -6,7 +9,11 @@ import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
 
 const ManageSemesters = () => {
-    const { notify } = useFeedback();
+    const { notify, confirm } = useFeedback();
+    const [editing, setEditing] = useState(null);
+    const [planSemester, setPlanSemester] = useState(null);
+    const [curriculum, setCurriculum] = useState(null);
+    const [pending, setPending] = useState(false);
     const { refresh } = useAcademic();
     const [activeTab, setActiveTab] = useState('periods'); // 'periods' | 'semesters' | 'programs'
 
@@ -147,6 +154,22 @@ const ManageSemesters = () => {
         }
     };
 
+    const saved = async () => { await fetchAllData(); await refresh(); };
+    const remove = async (resource, row, label) => {
+        if (pending || !await confirm(`Xóa ${label}? Dữ liệu đang sử dụng sẽ được giữ lại.`)) return;
+        setPending(true);
+        try { const res = await axiosClient.delete(`/admin/${resource}/${row.id}`); notify(res.message, 'success'); await saved(); }
+        catch (err) { notify(err.response?.data?.message || 'Không thể xóa dữ liệu.', 'danger'); }
+        finally { setPending(false); }
+    };
+    const openCurriculum = async program => {
+        setPending(true);
+        try {
+            const [list, catalog] = await Promise.all([axiosClient.get(`/admin/programs/${program.id}/curriculum`), axiosClient.get('/admin/subjects')]);
+            setCurriculum({ program, initial: list.data, subjects: catalog.data });
+        } catch (err) { notify(err.response?.data?.message || 'Không tải được môn học chương trình.', 'danger'); }
+        finally { setPending(false); }
+    };
     return (
         <div className="admin-pane">
             <RecordWorkspace heading={<>
@@ -233,14 +256,16 @@ const ManageSemesters = () => {
                                                     {rp.is_active === 1 ? 'ĐANG MỞ CỔNG' : 'ĐÃ ĐÓNG CỔNG'}
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td><RecordActions label={rp.name}>
+                                                <button disabled={pending} onClick={() => setEditing({ resource: 'registration-periods', record: rp })}>Sửa đợt đăng ký</button>
+                                                <button disabled={pending} onClick={() => remove('registration-periods', rp, rp.name)}>Xóa đợt đăng ký</button>
                                                 <button
                                                     className={`btn btn-sm ${rp.is_active === 1 ? 'btn-outline-danger' : 'btn-outline-success'}`}
                                                     onClick={() => handleTogglePeriod(rp.id)}
                                                 >
                                                     <i aria-hidden="true" className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
                                                     {rp.is_active === 1 ? 'Đóng Đợt' : 'Mở Đợt'}
-                                                </button>
+                                                </button></RecordActions>
                                             </td>
                                         </tr>
                                     ))}
@@ -289,7 +314,9 @@ const ManageSemesters = () => {
                                                     {s.is_active === 1 ? 'Học kỳ hiện tại' : 'Không kích hoạt'}
                                                 </span>
                                             </td>
-                                            <td>
+                                            <td><RecordActions label={s.semester_name}><button onClick={() => setPlanSemester(s)}>Tình trạng chốt đăng ký</button>
+                                                <button disabled={pending} onClick={() => setEditing({ resource: 'semesters', record: s })}>Sửa học kỳ & năm học</button>
+                                                <button disabled={pending} onClick={() => remove('semesters', s, s.semester_name)}>Xóa học kỳ</button>
                                                 {s.is_active !== 1 && (
                                                     <button
                                                         className="btn btn-outline-primary btn-sm"
@@ -297,7 +324,7 @@ const ManageSemesters = () => {
                                                     >
                                                         <i aria-hidden="true" className="bi bi-check2-circle me-1"></i> Đặt Làm Hiện Hành
                                                     </button>
-                                                )}
+                                                )}</RecordActions>
                                             </td>
                                         </tr>
                                     ))}
@@ -328,7 +355,7 @@ const ManageSemesters = () => {
                                         <th scope="col">Khoa Trực Thuộc</th>
                                         <th scope="col">Tổng Tín Chỉ</th>
                                         <th scope="col">Thời Gian Đào Tạo</th>
-                                        <th scope="col">Số Sinh Viên</th>
+                                        <th scope="col">Số Sinh Viên</th><th scope="col">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -341,6 +368,11 @@ const ManageSemesters = () => {
                                             <td><span className="badge bg-primary-subtle text-primary fs-6">{p.total_credits || 135} TC</span></td>
                                             <td>{p.duration_years || 4.0} năm</td>
                                             <td><span className="badge bg-info text-dark">{p.total_students || 0} SV</span></td>
+                                            <td><RecordActions label={p.program_name}>
+                                                <button disabled={pending} onClick={() => setEditing({ resource: 'programs', record: p })}>Sửa chương trình</button>
+                                                <button disabled={pending} onClick={() => openCurriculum(p)}>Môn học & học kỳ</button>
+                                                <button disabled={pending} onClick={() => remove('programs', p, p.program_name)}>Xóa chương trình</button>
+                                            </RecordActions></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -350,6 +382,9 @@ const ManageSemesters = () => {
                 )}
             </RecordWorkspace>
 
+            {planSemester && <RegistrationPlans semester={planSemester} onClose={() => setPlanSemester(null)} />}
+            {editing && <TrainingEditor {...editing} departments={departments} onClose={() => setEditing(null)} onSaved={saved} />}
+            {curriculum && <CurriculumEditor {...curriculum} onClose={() => setCurriculum(null)} onSaved={saved} />}
             {/* Modal Tạo Đợt Đăng Ký */}
             {showPeriodModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowPeriodModal(false)}>

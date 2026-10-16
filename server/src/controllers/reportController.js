@@ -51,4 +51,8 @@ const getAcademicReports = endpoint(async (req, store) => {
     return { data: { gradeDistribution, gradedCount, failedCount, passedCount, passRate: gradedCount ? ((passedCount/gradedCount)*100).toFixed(1) : '0.0',
         classOccupancy: classes.map(c => ({ ...c, occupancy_rate: c.max_students ? Math.round(c.current_students/c.max_students*100) : 0 })) } };
 });
-module.exports = { exportClassStudentsExcel, exportAllStudentsExcel, getAcademicReports };
+const exportRegistrationPlans = excel(async (req, store) => {
+    const result = await require('../services/registrationPlans').registrationPlans(store, req.params.semesterId);
+    return result.data.map((s, i) => ({ STT: i + 1, 'Học kỳ': result.semester.semester_name, 'Mã sinh viên': s.student_code, 'Họ tên': s.full_name, 'Lớp': s.class_name, 'Tín chỉ': s.total_credits, 'Tối thiểu': s.min_credits, 'Tối đa': s.max_credits, 'Trạng thái': s.status_label, 'Ngày chốt': s.submitted_at ? String(s.submitted_at) : '' }));
+}, 'DangKyHocPhan', 'Tinh_trang_dang_ky.xlsx');
+module.exports = { exportRegistrationPlans, exportClassStudentsExcel, exportAllStudentsExcel, getAcademicReports };

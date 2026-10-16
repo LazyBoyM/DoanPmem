@@ -10,6 +10,8 @@ let isConnected = false;
 
 // Mock in-memory database fallback
 const mockDb = {
+    program_subjects: [],
+    registration_submissions: [],
     buildings: [
         { id: 1, building_code: 'A1', building_name: 'Tòa A1', location: '', status: 'ACTIVE' },
         { id: 2, building_code: 'A2', building_name: 'Tòa A2', location: '', status: 'ACTIVE' },

@@ -1,3 +1,4 @@
+import TrainingEditor from '../../components/TrainingEditor';
 import RecordActions from '../../components/RecordActions';
 import RecordWorkspace from '../../components/RecordWorkspace';
 import AccessibleDialog from '../../components/AccessibleDialog';
@@ -15,6 +16,7 @@ const ManageClasses = () => {
     const [semesters, setSemesters] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [scheduleClass, setScheduleClass] = useState(null);
+    const [editingClass, setEditingClass] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Modals
@@ -242,7 +244,7 @@ const ManageClasses = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <RecordActions label={c.full_name || c.subject_name || c.username || c.class_code}>
+                                            <RecordActions label={c.full_name || c.subject_name || c.username || c.class_code}><button disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked)} onClick={() => setEditingClass(c)}>Sửa thông tin lớp</button>
                                                 <button className="btn btn-sm btn-outline-primary" disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked)} onClick={() => { fetchOptions(); setScheduleClass(c); }}>Đổi lịch & phòng</button>
                                                 <button
                                                     className={`btn btn-sm ${c.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'}`}
@@ -432,6 +434,7 @@ const ManageClasses = () => {
                 </AccessibleDialog>
             )}
 
+            {editingClass && <TrainingEditor resource="classes" record={editingClass} lecturers={lecturers} onClose={() => setEditingClass(null)} onSaved={fetchClasses} />}
             {scheduleClass && <ClassScheduleEditor courseClass={scheduleClass} rooms={rooms} onClose={() => setScheduleClass(null)} onSaved={fetchClasses} />}
             {/* Modal Danh Sách Sinh Viên Của Lớp */}
             {showStudentsModal && (

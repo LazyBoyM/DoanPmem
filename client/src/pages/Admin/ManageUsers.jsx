@@ -1,3 +1,4 @@
+import TrainingEditor from '../../components/TrainingEditor';
 import RecordActions from '../../components/RecordActions';
 import RecordWorkspace from '../../components/RecordWorkspace';
 import LoadingState from '../../components/LoadingState';
@@ -14,6 +15,8 @@ const ManageUsers = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
+    const [creatingAdmin, setCreatingAdmin] = useState(false);
+    const [roleUser, setRoleUser] = useState(null);
 
 
 
@@ -21,9 +24,7 @@ const ManageUsers = () => {
         try {
             const res = await axiosClient.get('/admin/users');
             if (res.success) {
-                // Ẩn tài khoản Admin khỏi danh sách
-                const nonAdminUsers = (res.data || []).filter(u => u.role !== 'ADMIN');
-                setUsers(nonAdminUsers);
+                setUsers(res.data || []);
             }
         } catch (err) {
             notify(err.response?.data?.message || 'Lỗi lấy danh sách tài khoản: Vui lòng dùng nút làm mới để thử lại.', 'danger');
@@ -90,10 +91,10 @@ const ManageUsers = () => {
                             Tài khoản & phân quyền
                         </h1>
                         <p className="text-muted small mb-0">
-                            Quản trị tài khoản Giảng viên và Sinh viên, cấp phát quyền hạn và kích hoạt đăng nhập
+                            Quản trị tài khoản Admin, Giảng viên và Sinh viên theo vai trò được cấp khi tạo hồ sơ
                         </p>
                     </div>
-                    <div className="d-flex gap-2">
+                    <div className="d-flex gap-2 flex-wrap"><button className="btn btn-outline-primary btn-sm" onClick={() => setCreatingAdmin(true)}>Tạo quản trị viên</button>
                         <Link className="btn btn-primary btn-sm" to="/admin/students">Tạo hồ sơ & tài khoản sinh viên</Link>
                         <Link className="btn btn-outline-primary btn-sm" to="/admin/lecturers">Tạo hồ sơ & tài khoản giảng viên</Link>
                     </div>
@@ -118,13 +119,13 @@ const ManageUsers = () => {
                             onChange={(e) => setRoleFilter(e.target.value)}
                         >
                             <option value="">-- Tất cả vai trò người dùng --</option>
-                            <option value="LECTURER">Giảng viên (LECTURER)</option>
+                            <option value="ADMIN">Quản trị viên (ADMIN)</option><option value="LECTURER">Giảng viên (LECTURER)</option>
                             <option value="STUDENT">Sinh viên (STUDENT)</option>
                         </select>
                     </div>
                 </>} sheetTitle="Danh sách tài khoản" filterTitle="Tra cứu tài khoản" summary={<>
                     <span className="badge bg-light text-dark border px-3 py-2">
-                        Hiển thị <b>{filteredUsers.length}</b> tài khoản (Tài khoản Quản trị viên được bảo mật ẩn)
+                        Hiển thị <b>{filteredUsers.length}</b> tài khoản
                     </span>
                 </>}>
 <div className="table-container-responsive">
@@ -174,7 +175,7 @@ const ManageUsers = () => {
                                                     : 'bg-primary-subtle text-primary border border-primary-subtle'
                                             }`}>
                                                 <i aria-hidden="true" className={`bi ${u.role === 'LECTURER' ? 'bi-person-workspace' : 'bi-backpack'} me-1`}></i>
-                                                {u.role === 'LECTURER' ? 'Giảng Viên' : 'Sinh Viên'}
+                                                {u.role === 'ADMIN' ? 'Quản trị viên' : u.role === 'LECTURER' ? 'Giảng Viên' : 'Sinh Viên'}
                                             </span>
                                         </td>
                                         <td>
@@ -183,13 +184,14 @@ const ManageUsers = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <RecordActions label={u.full_name || u.subject_name || u.username || u.class_code}>
+                                            <RecordActions label={u.full_name || u.subject_name || u.username || u.class_code}><button disabled={currentUser?.id === u.id} onClick={() => setRoleUser(u)}>Phân quyền</button>
                                                 <button
                                                     className={`btn btn-sm px-2 py-1 ${
                                                         (u.status === 1 || u.status === 'ACTIVE')
                                                             ? 'btn-outline-danger'
                                                             : 'btn-outline-success'
                                                     }`}
+                                                    disabled={u.role === 'ADMIN' || currentUser?.id === u.id}
                                                     onClick={() => toggleStatus(u)}
                                                     title={u.status === 1 || u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                                 >
@@ -213,7 +215,8 @@ const ManageUsers = () => {
 
 </RecordWorkspace>
 
-            {/* Modal Tạo Tài Khoản */}
+            {roleUser && <TrainingEditor resource="roles" record={roleUser} onClose={() => setRoleUser(null)} onSaved={fetchUsers} />}
+            {creatingAdmin && <TrainingEditor resource="accounts" record={{ username: '', email: '', password: '' }} onClose={() => setCreatingAdmin(false)} onSaved={fetchUsers} />}
 
         </div>
     );

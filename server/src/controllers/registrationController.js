@@ -44,6 +44,7 @@ const registerClass = endpoint(async (req, store) => {
     if (existing) await store.update('enrollments', existing.id, { status: 'ENROLLED', enrollment_time: new Date() });
     else await store.insert('enrollments', { student_id: student.id, course_class_id: cls.id, status: 'ENROLLED', enrollment_time: new Date() });
     await store.update('course_classes', cls.id, { current_students: cls.current_students + 1 });
+    await store.remove('registration_submissions', { student_id: student.id, semester_id: cls.semester_id });
     return { message: 'Đăng ký học phần thành công.' };
 }, true);
 const cancelEnrollment = endpoint(async (req, store) => {
@@ -58,6 +59,7 @@ const cancelEnrollment = endpoint(async (req, store) => {
     await store.update('enrollments', enrollment.id, { status: 'CANCELLED' });
     await store.update('course_classes', cls.id, { current_students: Math.max(0, cls.current_students - 1) });
     await store.remove('grades', { enrollment_id: enrollment.id });
+    await store.remove('registration_submissions', { student_id: req.user.student_id, semester_id: cls.semester_id });
     return { message: 'Đã hủy đăng ký.' };
 }, true);
 module.exports = { getContext, getGrades, getAllClasses, getOpenClasses, getMyEnrollments, registerClass, cancelEnrollment };

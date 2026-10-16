@@ -27,7 +27,7 @@ const ManageSubjects = () => {
         theory_periods: 30,
         practice_periods: 15,
         department_id: '1',
-        prerequisite_id: ''
+        prerequisite_ids: []
     });
 
 
@@ -63,7 +63,7 @@ const ManageSubjects = () => {
             theory_periods: 30,
             practice_periods: 15,
             department_id: departments.length > 0 ? String(departments[0].id) : '1',
-            prerequisite_id: ''
+            prerequisite_ids: []
         });
         setShowModal(true);
     };
@@ -78,7 +78,7 @@ const ManageSubjects = () => {
             theory_periods: sub.theory_periods ?? 30,
             practice_periods: sub.practice_periods ?? 15,
             department_id: String(sub.department_id || 1),
-            prerequisite_id: ''
+            prerequisite_ids: (sub.prerequisite_ids || []).map(String)
         });
         setShowModal(true);
     };
@@ -349,16 +349,17 @@ const ManageSubjects = () => {
                                                 ))}
                                             </select>
                                         </div>
-                                        {!isEditing && (
+                                        {(
                                             <div className="col-md-6">
-                                                <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-7">Môn Tiên Quyết (Nếu có)</label>
+                                                <label className="form-label small fw-bold" htmlFor="ManageSubjects-field-7">Môn tiên quyết (giữ Ctrl để chọn nhiều; bỏ chọn để xóa)</label>
                                                 <select id="ManageSubjects-field-7"
                                                     className="form-select"
-                                                    value={formData.prerequisite_id}
-                                                    onChange={(e) => setFormData({ ...formData, prerequisite_id: e.target.value })}
+                                                    multiple
+                                                    value={formData.prerequisite_ids}
+                                                    onChange={(e) => setFormData({ ...formData, prerequisite_ids: Array.from(e.target.selectedOptions, o => o.value) })}
                                                 >
-                                                    <option value="">-- Không có điều kiện tiên quyết --</option>
-                                                    {subjects.map(s => (
+
+                                                    {subjects.filter(s => s.id !== currentId).map(s => (
                                                         <option key={s.id} value={s.id}>{s.subject_code} - {s.subject_name}</option>
                                                     ))}
                                                 </select>

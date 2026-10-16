@@ -103,4 +103,14 @@ router.get('/reports/export-class-excel/:classId', verifyToken, requireRole(['LE
 router.get('/reports/export-students-excel', verifyToken, requireRole(['ADMIN']), reportController.exportAllStudentsExcel);
 router.get('/reports/academic-stats', verifyToken, requireRole(['ADMIN', 'LECTURER']), reportController.getAcademicReports);
 
+const training = require('../controllers/trainingController');
+router.put('/admin/users/:id/role', verifyToken, requireRole(['ADMIN']), training.updateUserRole);
+router.get('/admin/semesters/:id/registration-plans', verifyToken, requireRole(['ADMIN']), training.getRegistrationPlans);
+router.get('/reports/export-registration-plans/:semesterId', verifyToken, requireRole(['ADMIN']), reportController.exportRegistrationPlans);
+router.post('/admin/admin-accounts', verifyToken, requireRole(['ADMIN']), training.createAdmin);
+for (const [path, handler] of [['/admin/programs/:id', 'updateProgram'], ['/admin/programs/:id/curriculum', 'saveCurriculum'], ['/admin/semesters/:id', 'updateSemester'], ['/admin/registration-periods/:id', 'updatePeriod'], ['/admin/classes/:id', 'updateClass']]) router.put(path, verifyToken, requireRole(['ADMIN']), training[handler]);
+for (const [path, handler] of [['/admin/programs/:id', 'deleteProgram'], ['/admin/semesters/:id', 'deleteSemester'], ['/admin/registration-periods/:id', 'deletePeriod']]) router.delete(path, verifyToken, requireRole(['ADMIN']), training[handler]);
+router.get('/admin/programs/:id/curriculum', verifyToken, requireRole(['ADMIN']), training.getCurriculum);
+router.get('/registration/submission', verifyToken, requireRole(['STUDENT']), training.getSubmission);
+router.post('/registration/submit', verifyToken, requireRole(['STUDENT']), training.submitRegistration);
 module.exports = router;

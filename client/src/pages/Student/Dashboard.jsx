@@ -18,7 +18,7 @@ const enrollmentRestriction = (enrollment, period) => {
 const StudentRegistration = () => {
     const { confirm } = useFeedback();
     const { semesterId, period, refresh } = useAcademic();
-    const [result, setResult] = useState({ semesterId: '', classes: [], enrollments: [] });
+    const [result, setResult] = useState({ semesterId: '', classes: [], enrollments: [], submission: null });
     const [searchTerm, setSearchTerm] = useState('');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState(null);
@@ -28,12 +28,13 @@ const StudentRegistration = () => {
     const fetchData = useCallback(async (signal) => {
         if (!semesterId) return;
         try {
-            const [classesRes, enrollmentsRes] = await Promise.all([
+            const [classesRes, enrollmentsRes, submissionRes] = await Promise.all([
                 axiosClient.get('/registration/open-classes', { params: { semester_id: semesterId }, signal }),
-                axiosClient.get('/registration/my-enrollments', { params: { semester_id: semesterId }, signal })
+                axiosClient.get('/registration/my-enrollments', { params: { semester_id: semesterId }, signal }),
+                axiosClient.get('/registration/submission', { params: { semester_id: semesterId }, signal })
             ]);
             if (!signal?.aborted) {
-                setResult({ semesterId, classes: classesRes.data, enrollments: enrollmentsRes.data });
+                setResult({ semesterId, classes: classesRes.data, enrollments: enrollmentsRes.data, submission: submissionRes.data });
                 setError('');
             }
         } catch (err) { if (!signal?.aborted) setError(err.response?.data?.message || 'Không tải được dữ liệu đăng ký.'); }
@@ -53,7 +54,7 @@ const StudentRegistration = () => {
         setBusy(true); setNotice(null);
         try {
             await axiosClient.post('/registration/enroll', { course_class_id: classId });
-            setNotice({ type: 'success', text: 'Đã đăng ký lớp. Kiểm tra danh sách đã đăng ký và thời khóa biểu.' });
+            setNotice({ type: 'success', text: 'Đã đăng ký lớp. Chốt đăng ký sau khi chọn đủ học phần.' });
             await fetchData();
         } catch (err) { setNotice({ type: 'danger', text: err.response?.data?.message || 'Không đăng ký được học phần.' }); }
         finally { setBusy(false); refresh(); }
@@ -63,10 +64,18 @@ const StudentRegistration = () => {
         setBusy(true); setNotice(null);
         try {
             await axiosClient.post('/registration/cancel', { enrollment_id: enrollmentId });
-            setNotice({ type: 'success', text: 'Đã hủy đăng ký lớp học phần.' });
+            setNotice({ type: 'success', text: 'Đã hủy đăng ký lớp học phần. Cần chốt lại kế hoạch sau thay đổi.' });
             await fetchData();
         } catch (err) { setNotice({ type: 'danger', text: err.response?.data?.message || 'Không hủy được đăng ký.' }); }
         finally { setBusy(false); refresh(); }
+    };
+    const handleSubmitPlan = async () => {
+        setBusy(true); setNotice(null);
+        try {
+            const res = await axiosClient.post('/registration/submit', { semester_id: semesterId });
+            setNotice({ type: 'success', text: res.message }); await fetchData();
+        } catch (err) { setNotice({ type: 'danger', text: err.response?.data?.message || 'Không chốt được đăng ký.' }); }
+        finally { setBusy(false); }
     };
     const totalCredits = myEnrollments.reduce((sum, item) => sum + Number(item.credits || 0), 0);
     const minCredits = period?.min_credits ?? 0;
@@ -90,7 +99,7 @@ const StudentRegistration = () => {
         </section><section className="card enrollment-summary"><div className="card-header-styled"><h5>Học phần đã đăng ký</h5><span className="badge-soft-primary">{myEnrollments.length} lớp</span></div><div className="registration-progress"><div className="credit-count">{totalCredits}<small> / {maxCredits || '—'} tín chỉ</small></div><p>{period ? `Mục tiêu tối thiểu ${minCredits} TC · Tối đa ${maxCredits} TC` : 'Giới hạn được hiển thị khi đợt đăng ký mở.'}</p><div className="credit-track" role="progressbar" aria-label="Tín chỉ đã đăng ký so với giới hạn" aria-valuenow={Math.round(progressPercent)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progressPercent}%` }} /></div></div>
         {myEnrollments.map(e => { const restriction = enrollmentRestriction(e, period); return <div key={e.enrollment_id} className="enrollment-row"><div className="d-flex justify-content-between gap-2 align-items-start"><h3>{e.subject_name}</h3><button className="icon-button" aria-label={`Hủy đăng ký ${e.subject_name}`} disabled={busy || Boolean(restriction)} title={restriction || 'Hủy đăng ký'} onClick={() => handleCancelEnrollment(e.enrollment_id)}><i className="bi bi-x-lg" aria-hidden="true" /></button></div><p>{e.class_code} · {e.credits} tín chỉ</p>{restriction && <small className="d-block text-muted mb-2">Không thể hủy: {restriction.toLowerCase()}.</small>}<ClassSchedule schedules={e.schedules} /></div>; })}
         {!myEnrollments.length && <div className="empty-state"><strong>Chưa có học phần</strong><span>Chọn lớp ở danh sách để bắt đầu kế hoạch học kỳ.</span></div>}
-        <div className="enrollment-links"><button className="btn btn-outline-primary" onClick={() => navigate('/student/timetable')}><i aria-hidden="true" className="bi bi-calendar3 me-2" />Xem thời khóa biểu</button><button className="btn btn-outline-secondary" onClick={() => navigate('/student/grades')}>Kết quả & thi lại</button></div></section></div></div>
+        <div className="p-3 border-top"><p role="status" className="small">{result.semesterId === semesterId && result.submission ? `Đã chốt đăng ký: ${result.submission.total_credits} tín chỉ. Thay đổi học phần sẽ yêu cầu chốt lại.` : 'Chưa chốt đăng ký. Cần đủ tín chỉ tối thiểu trước khi chốt.'}</p><button className="btn btn-primary" disabled={busy || !period || result.semesterId !== semesterId || Boolean(result.submission)} onClick={handleSubmitPlan}>{busy ? 'Đang xử lý…' : 'Chốt đăng ký'}</button></div><div className="enrollment-links"><button className="btn btn-outline-primary" onClick={() => navigate('/student/timetable')}><i aria-hidden="true" className="bi bi-calendar3 me-2" />Xem thời khóa biểu</button><button className="btn btn-outline-secondary" onClick={() => navigate('/student/grades')}>Kết quả & thi lại</button></div></section></div></div>
     </div>;
 };
 export default StudentRegistration;
