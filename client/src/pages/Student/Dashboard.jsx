@@ -41,9 +41,7 @@ const StudentRegistration = () => {
     }, [semesterId]);
     useEffect(() => {
         const controller = new AbortController();
-        // State updates occur after the HTTP response, not synchronously in this effect.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchData(controller.signal);
+        Promise.resolve().then(() => fetchData(controller.signal));
         return () => controller.abort();
     }, [fetchData]);
     const openClasses = result.semesterId === semesterId ? result.classes : [];

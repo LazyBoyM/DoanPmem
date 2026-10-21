@@ -38,12 +38,12 @@ const AppRoutes = () => {
         <Router>
             <Suspense fallback={<div className="d-flex justify-content-center p-5" role="status"><span className="spinner-border text-primary" aria-hidden="true" /><span className="visually-hidden">Đang tải trang...</span></div>}>
             <Routes>
-                {/* Public Route */}
+                
                 <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
 
-                {/* Protected Routes wrapped in MainLayout */}
+                
                 <Route element={<MainLayout />}>
-                    {/* Admin Routes */}
+                    
                     <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                         <Route path="/admin" element={<AdminDashboard />} />
                         <Route path="/admin/academic" element={<Navigate to="/admin/students" replace />} />
@@ -57,7 +57,7 @@ const AppRoutes = () => {
                         <Route path="/admin/facilities" element={<ManageFacilities />} />
                     </Route>
 
-                    {/* Lecturer Routes */}
+                    
                     <Route element={<ProtectedRoute allowedRoles={['LECTURER', 'ADMIN']} />}>
                         <Route path="/lecturer" element={<Navigate to="/lecturer/grades" replace />} />
                         <Route path="/lecturer/grades" element={<LecturerDashboard />} />
@@ -65,7 +65,7 @@ const AppRoutes = () => {
                         <Route path="/lecturer/timetable" element={<LecturerTimetable />} />
                     </Route>
 
-                    {/* Student Routes */}
+                    
                     <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
                         <Route path="/student" element={<Navigate to="/student/registration" replace />} />
                         <Route path="/student/registration" element={<StudentDashboard />} />
@@ -74,7 +74,7 @@ const AppRoutes = () => {
                     </Route>
                 </Route>
 
-                {/* Root Redirect based on role */}
+                
                 <Route path="/" element={
                     !user ? <Navigate to="/login" /> :
                     user.role === 'ADMIN' ? <Navigate to="/admin" /> :
@@ -82,7 +82,7 @@ const AppRoutes = () => {
                     <Navigate to="/student" />
                 } />
 
-                {/* Fallback */}
+                
                 <Route path="*" element={<Navigate to="/" />} />
             </Routes>
             </Suspense>

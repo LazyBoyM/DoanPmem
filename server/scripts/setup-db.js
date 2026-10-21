@@ -4,7 +4,6 @@ const mysql = require('mysql2/promise');
 const { databaseConfig } = require('../src/config/database');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-// These versioned files contain simple statements, with no routines or semicolons in strings.
 function statements(sql) {
     return sql.replaceAll('\r\n', '\n').replace(/^\s*--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean);
 }
@@ -18,7 +17,6 @@ async function setup(connection, root = path.join(__dirname, '../../database'), 
         throw new Error('Select an application database, for example DB_NAME=test.');
     }
     const [existing] = await connection.query('SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()');
-    // Recover an interrupted DDL-only import, but never merge fixed demo IDs into user data.
     for (const table of tables.filter(t => existing.some(row => row.name === t))) {
         const [rows] = await connection.query(`SELECT 1 FROM \`${table}\` LIMIT 1`);
         if (rows.length) throw new Error('Database already contains application data. Use an empty database; no existing data has been changed.');

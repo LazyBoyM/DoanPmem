@@ -55,9 +55,7 @@ export default function LecturerDashboard() {
     }, [semesterId]);
     useEffect(() => {
         const controller = new AbortController();
-        // Updates follow the asynchronous HTTP response.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchClasses(controller.signal);
+        Promise.resolve().then(() => fetchClasses(controller.signal));
         return () => controller.abort();
     }, [fetchClasses]);
     const fetchStudents = useCallback(async (classId, signal) => {
@@ -71,9 +69,7 @@ export default function LecturerDashboard() {
     }, [semesterId]);
     useEffect(() => {
         const controller = new AbortController();
-        // Updates follow the asynchronous HTTP response.
-        // eslint-disable-next-line react/set-state-in-effect
-        if (validSelection) fetchStudents(selectedClass, controller.signal);
+        if (validSelection) Promise.resolve().then(() => fetchStudents(selectedClass, controller.signal));
         return () => controller.abort();
     }, [selectedClass, validSelection, fetchStudents]);
     useEffect(() => {

@@ -1,4 +1,4 @@
-/* Sổ học vụ số — shared record grammar, with task-specific compositions. */
+
 .app-sidebar { width:224px; background:#f8fafb; }
 .app-main { margin-left:224px; }
 .sidebar-header { padding:25px 18px 18px; }
@@ -46,7 +46,7 @@
 .record-profile.modal-dialog { margin:0 0 0 auto; height:100dvh; max-width:min(1080px,100vw); }
 .record-profile .modal-content { min-height:100dvh; max-height:100dvh; border-radius:0; border:0; }
 .record-profile .modal-body { overflow:auto; }
-/* Overview: a live index of records alongside the ledger, rather than statistic cards. */
+
 .overview-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; align-items:start; }
 .overview-layout .overview-stats { display:grid; gap:0; border:0; margin:0; padding:0; }
 .overview-layout .overview-stats a { padding:16px 0; border-bottom:1px solid var(--border-color); flex-direction:row-reverse; justify-content:space-between; }
@@ -64,7 +64,7 @@
 .overview-sheet .result-summary { padding:16px 0 0; margin-top:8px; }
 .overview-sheet .dashboard-results>.text-link { justify-self:start; }
 .dashboard-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
-/* Academic record: stable identity and accumulated facts beside the course ledger. */
+
 .academic-directory { display:grid; grid-template-columns:220px minmax(0,1fr); gap:28px; align-items:start; }
 .academic-directory-index { min-width:0; }
 .academic-directory-index h2 { font-size:1rem; margin:0 0 18px; }
@@ -93,7 +93,7 @@
 .transcript-table { border-radius:12px; }
 .transcript-table .table-container-responsive { border:0; border-radius:0; }
 .transcript-table .card-header-styled h5 { font-size:1.25rem; }
-/* Catalog and enrollment plan */
+
 .registration-catalog-layout { display:grid; grid-template-columns:240px minmax(0,1fr); gap:28px; align-items:start; }
 .registration-catalog-index { min-width:0; }
 .registration-catalog-index h2 { font-size:1rem; margin:0 0 18px; }
@@ -118,7 +118,7 @@
 .registration-plan .registration-progress p { margin:0; }
 .registration-plan .credit-track { grid-column:1/-1; margin:0; }
 .registration-plan .enrollment-links { display:flex; flex-wrap:wrap; }
-/* Weekly schedule */
+
 .schedule-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; align-items:start; }
 .schedule-index { min-width:0; }
 .schedule-index h2 { font-size:1rem; margin:0 0 18px; }
@@ -134,7 +134,7 @@
 .schedule-sheet .timetable-table th,.schedule-sheet .timetable-table td { border-width:0 0 1px 1px; }
 .timetable-continuation { font-size:.75rem; }
 .schedule-agenda { display:none; }
-/* Cover and entry */
+
 .login-story { background:#eaf3f5; padding:40px 56px 28px; }
 .login-story-content { max-width:500px; }
 .login-story h1 { font-size:2.625rem; color:var(--text-main); }
@@ -196,7 +196,7 @@
 }
 @media(prefers-reduced-motion:no-preference) { .record-editor.portal-dialog,.record-profile .modal-content { animation:record-open 220ms cubic-bezier(.16,1,.3,1); } @keyframes record-open { from { transform:translateX(24px); clip-path:inset(0 0 0 6px); } to { transform:translateX(0); clip-path:inset(0); } } }
 @media print { .record-index,.schedule-index,.record-heading,.registration-catalog-index,.academic-directory-index { display:none!important; } .record-layout,.overview-layout,.academic-directory,.transcript-record-layout,.schedule-layout { display:block; } .record-sheet,.schedule-sheet,.overview-sheet { border:0; overflow:visible; } .record-profile.modal-dialog { width:100%;max-width:none;margin:0;height:auto; } .record-profile .modal-content { max-height:none;height:auto; } .schedule-calendar { display:block!important; } .schedule-agenda { display:none!important; } }
-/* One inspection batch: keep row actions visible, simplify embedded identity and compact scopes. */
+
 .record-sheet .table-modern { min-width:960px; }
 .record-sheet .directory-table { min-width:1080px; }
 .record-sheet .table-modern th:last-child,.record-sheet .table-modern td:last-child { position:sticky; right:0; background:white; z-index:2; width:110px; min-width:110px; border-left:1px solid var(--border-color); }

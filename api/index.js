@@ -7,7 +7,6 @@ module.exports = async (req, res) => {
         validateRuntime();
         await initDb();
     } catch {
-        // Do not expose connection strings or serve demo data after startup failure.
         return res.status(503).json({ success: false, message: 'Dịch vụ chưa sẵn sàng. Vui lòng thử lại sau.' });
     }
     return app(req, res);

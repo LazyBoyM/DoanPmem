@@ -17,12 +17,10 @@ const ManageStudents = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterProgram, setFilterProgram] = useState('');
 
-    // Modal state
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentId, setCurrentId] = useState(null);
 
-    // Form data
     const [formData, setFormData] = useState({
         student_code: '',
         full_name: '',
@@ -36,8 +34,6 @@ const ManageStudents = () => {
         email: '',
         password: ''
     });
-
-
 
     const fetchData = useCallback(async () => {
         try {
@@ -55,9 +51,7 @@ const ManageStudents = () => {
     }, [notify]);
 
     useEffect(() => {
-        // HTTP responses update state after the request settles.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchData();
+        Promise.resolve().then(fetchData);
     }, [fetchData]);
 
     const handleOpenAdd = () => {
@@ -329,7 +323,6 @@ const ManageStudents = () => {
 </RecordWorkspace>
 
             {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
-            {/* Modal Thêm/Sửa */}
             {showModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">

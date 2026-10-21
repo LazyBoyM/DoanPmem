@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { lockFacilities, resolveRooms } = require('../services/facilities');
 const { endpoint, fail } = require('../services/store');
-const { integer, text, dateTime, requireRow, hasGrade, classesWithDetails, validateSchedules, validateClassConflicts } = require('../services/academic');
+const { integer, text, dateTime, requireRow, hasGrade, classesWithDetails, validateSchedules, validateClassConflicts, isPeriodOpen } = require('../services/academic');
 const ok = message => ({ message });
 async function unique(store, table, key, value, except) {
     if ((await store.list(table)).some(row => row.id !== except && String(row[key]).toLowerCase() === String(value).toLowerCase())) fail(`${key} đã được sử dụng.`, 409);
@@ -101,7 +101,6 @@ const getAllLecturers = endpoint(async (_req, store) => {
     }) };
 });
 const getAllUsers = endpoint(async (_req, store) => ({ data: (await store.list('users')).map(({ password, ...u }) => u) }));
-// A profile is required: standalone accounts are intentionally not created.
 const createUser = endpoint(async () => { fail('Hãy tạo tài khoản cùng hồ sơ tại Quản lý sinh viên hoặc Quản lý giảng viên.'); });
 const toggleUserStatus = endpoint(async (req, store) => {
     const user = await requireRow(store, 'users', req.params.id, 'Tài khoản');
@@ -224,7 +223,6 @@ const createSemester = endpoint(async (req, store) => {
     return { data, message: 'Đã tạo học kỳ. Chọn Kích hoạt để sử dụng.' };
 }, true);
 const setActiveSemester = endpoint(async (req, store) => {
-    // Activating a semester changes the whole active set; serialize this rare operation.
     const semesters = await store.list('semesters', {}, { lock: true });
     const id = integer(req.params.id, 'Học kỳ');
     if (!semesters.some(s => s.id === id)) fail('Học kỳ không tồn tại.', 404);
@@ -233,7 +231,11 @@ const setActiveSemester = endpoint(async (req, store) => {
 }, true);
 const getRegistrationPeriods = endpoint(async (_req, store) => {
     const semesters = await store.list('semesters');
-    return { data: (await store.list('registration_periods')).map(p => ({ ...p, semester_name: semesters.find(s => s.id === p.semester_id)?.semester_name })) };
+    return { data: (await store.list('registration_periods')).map(p => ({
+        ...p,
+        semester_name: semesters.find(s => s.id === p.semester_id)?.semester_name,
+        is_open: isPeriodOpen(p)
+    })) };
 });
 async function validatePeriod(store, period) {
     await requireRow(store, 'semesters', period.semester_id, 'Học kỳ');

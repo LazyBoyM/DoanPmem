@@ -2,8 +2,6 @@ const { fail } = require('./store');
 const { integer, requireRow } = require('./academic');
 
 const roomLabel = (room, building) => building.building_code === 'LEGACY' ? room.room_code : `${building.building_code} · ${room.room_code}`;
-// A shared catalog lock serializes allocation against edits, closure and deletion.
-// All facility writers take this lock first, before room, semester or class locks.
 async function lockFacilities(store) {
     await store.list('buildings', {}, { lock: true });
 }

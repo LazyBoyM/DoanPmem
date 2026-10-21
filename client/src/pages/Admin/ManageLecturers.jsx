@@ -14,12 +14,10 @@ const ManageLecturers = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDept, setFilterDept] = useState('');
 
-    // Modal state
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentId, setCurrentId] = useState(null);
 
-    // Form data
     const [formData, setFormData] = useState({
         lecturer_code: '',
         full_name: '',
@@ -48,9 +46,7 @@ const ManageLecturers = () => {
     }, [notify]);
 
     useEffect(() => {
-        // HTTP responses update state after the request settles.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchData();
+        Promise.resolve().then(fetchData);
     }, [fetchData]);
 
     const handleOpenAdd = () => {
@@ -297,7 +293,6 @@ const ManageLecturers = () => {
 
 </RecordWorkspace>
 
-            {/* Modal Thêm/Sửa Giảng Viên */}
             {showModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-md modal-dialog-centered">

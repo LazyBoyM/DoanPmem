@@ -18,12 +18,10 @@ export const AuthProvider = ({ children }) => {
                     if (decoded.exp < currentTime) {
                         logout();
                     } else {
-                        // Optionally fetch latest profile data
                         const response = await axiosClient.get('/auth/me');
                         if (response.success) {
                             setUser(response.data);
                         } else {
-                            // Do not accept a session whose profile cannot be verified.
                             logout();
                         }
                     }

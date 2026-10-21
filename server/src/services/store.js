@@ -31,7 +31,6 @@ function createStore(connection, writing = false, memory = db.mockDb) {
             const [rows] = await connection.query(`SELECT * FROM ${name}${clause} ORDER BY id${writing && (options.lock ?? Object.keys(filter).length > 0) ? ' FOR UPDATE' : ''}`, values);
             return rows;
         },
-        // Related data is read without locking unrelated rows or entire tables.
         async related(table, key, ids) {
             const name = tableName(table), column = identifier(key);
             const values = [...new Set(ids)];

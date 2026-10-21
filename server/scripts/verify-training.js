@@ -1,4 +1,3 @@
-// Explicit MySQL smoke check. All generated records are rolled back, including successful writes.
 const assert = require('node:assert/strict');
 const db = require('../src/config/db');
 const admin = require('../src/controllers/adminController');

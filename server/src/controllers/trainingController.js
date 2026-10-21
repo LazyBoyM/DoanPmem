@@ -127,7 +127,6 @@ const createAdmin = endpoint(async (req, store) => {
     return { message: 'Đã tạo tài khoản quản trị viên.' };
 }, true);
 const updateUserRole = endpoint(async (req, store) => {
-    // Serialize changes to the administrator set, so two demotions cannot remove all admins.
     const users = await store.list('users', {}, { lock: true });
     const user = users.find(u => u.id === integer(req.params.id, 'Tài khoản'));
     if (!user) fail('Tài khoản không tồn tại.', 404);

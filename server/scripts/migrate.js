@@ -5,7 +5,6 @@ const { databaseConfig } = require('../src/config/database');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 async function applyFacilitiesMigration(connection, sql) {
-    // MySQL DDL auto-commits. Introspection makes a partially applied migration restartable.
     const { statements } = require('./setup-db');
     for (const statement of statements(sql)) {
         if (/ADD COLUMN room_id/.test(statement)) {
@@ -40,7 +39,6 @@ async function migrate(only) {
                 const [columns] = await connection.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'course_classes' AND COLUMN_NAME = 'grades_locked'");
                 if (columns.length) sql = sql.replace(/^ALTER TABLE course_classes ADD COLUMN grades_locked[^;]*;/m, '');
             }
-            // SQL comes exclusively from versioned local migration files.
             if (name === '004_buildings_rooms.sql') await applyFacilitiesMigration(connection, sql);
             else await connection.query(sql);
             await connection.query('INSERT INTO schema_migrations (name) VALUES (?)', [name]);

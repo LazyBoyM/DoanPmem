@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 
-/** Share cancellation, stale-response protection and retry handling for transcripts. */
+
 export default function useAcademicReport(endpoint, semester = '') {
     const requestKey = JSON.stringify([endpoint, semester]);
     const [result, setResult] = useState(null);

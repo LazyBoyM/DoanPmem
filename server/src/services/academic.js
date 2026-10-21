@@ -11,7 +11,6 @@ function text(value, label) {
 }
 function dateTime(value) {
     if (value instanceof Date) return value;
-    // Academic dates are stored as Vietnam local wall-clock time in MySQL.
     const raw = String(value || '').replace(' ', 'T');
     return new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw.length === 10 ? `${raw}T00:00:00+07:00` : `${raw}+07:00`);
 }

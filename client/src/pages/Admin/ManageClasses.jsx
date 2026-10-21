@@ -19,7 +19,6 @@ const ManageClasses = () => {
     const [editingClass, setEditingClass] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Modals
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
     const [showStudentsModal, setShowStudentsModal] = useState(false);
@@ -27,7 +26,6 @@ const ManageClasses = () => {
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
 
-    // Form
     const [formData, setFormData] = useState({
         class_code: '',
         subject_id: '',
@@ -278,7 +276,6 @@ const ManageClasses = () => {
 
 </RecordWorkspace>
 
-            {/* Modal Mở lớp học phần */}
             {showCreateModal && (
                 <AccessibleDialog className="record-editor" onClose={() => { if (!creating) setShowCreateModal(false); }}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -436,7 +433,6 @@ const ManageClasses = () => {
 
             {editingClass && <TrainingEditor resource="classes" record={editingClass} lecturers={lecturers} onClose={() => setEditingClass(null)} onSaved={fetchClasses} />}
             {scheduleClass && <ClassScheduleEditor courseClass={scheduleClass} rooms={rooms} onClose={() => setScheduleClass(null)} onSaved={fetchClasses} />}
-            {/* Modal Danh Sách Sinh Viên Của Lớp */}
             {showStudentsModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowStudentsModal(false)}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">

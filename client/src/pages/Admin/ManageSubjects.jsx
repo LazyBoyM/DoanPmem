@@ -14,12 +14,10 @@ const ManageSubjects = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDept, setFilterDept] = useState('');
 
-    // Modal state
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentId, setCurrentId] = useState(null);
 
-    // Form data
     const [formData, setFormData] = useState({
         subject_code: '',
         subject_name: '',
@@ -29,8 +27,6 @@ const ManageSubjects = () => {
         department_id: '1',
         prerequisite_ids: []
     });
-
-
 
     const fetchData = useCallback(async () => {
         try {
@@ -48,9 +44,7 @@ const ManageSubjects = () => {
     }, [notify]);
 
     useEffect(() => {
-        // HTTP responses update state after the request settles.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchData();
+        Promise.resolve().then(fetchData);
     }, [fetchData]);
 
     const handleOpenAdd = () => {
@@ -267,7 +261,6 @@ const ManageSubjects = () => {
 
 </RecordWorkspace>
 
-            {/* Modal Thêm/Sửa Môn Học */}
             {showModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">

@@ -14,7 +14,6 @@ for (const sql of seed) {
     const match = /INSERT INTO `(\w+)` \((.*?)\) VALUES([\s\S]*?)ON DUPLICATE KEY/.exec(sql);
     assert.ok(match, sql);
     const keys = [...match[2].matchAll(/`(\w+)`/g)].map(m => m[1]);
-    // Parse only this repository's numeric/string literal demo tuples, never user input.
     const tuples = vm.runInNewContext('[' + match[3].trim().replaceAll('(', '[').replaceAll(')', ']') + ']');
     rows[match[1]] = tuples.map(tuple => Object.fromEntries(keys.map((key, i) => [key, tuple[i]])));
 }

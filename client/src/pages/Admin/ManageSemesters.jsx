@@ -8,6 +8,44 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
 
+function getPeriodStatus(rp) {
+    if (Number(rp.is_active) !== 1) {
+        return {
+            label: 'ĐÃ TẮT',
+            badgeClass: 'bg-secondary text-white',
+            detail: 'Đã tắt thủ công'
+        };
+    }
+    const parse = (val) => {
+        if (!val) return new Date(NaN);
+        const raw = String(val).replace(' ', 'T');
+        return new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw.length === 10 ? `${raw}T00:00:00+07:00` : `${raw}+07:00`);
+    };
+    const now = new Date();
+    const start = parse(rp.start_time);
+    const end = parse(rp.end_time);
+
+    if (now < start) {
+        return {
+            label: 'CHƯA TỚI HẠN',
+            badgeClass: 'bg-warning text-dark',
+            detail: 'Chưa tới giờ mở'
+        };
+    }
+    if (now > end) {
+        return {
+            label: 'ĐÃ HẾT HẠN',
+            badgeClass: 'bg-danger-subtle text-danger border border-danger-subtle',
+            detail: 'Tự động đóng cổng'
+        };
+    }
+    return {
+        label: 'ĐANG MỞ CỔNG',
+        badgeClass: 'bg-success text-white',
+        detail: 'Đang tiếp nhận đăng ký'
+    };
+}
+
 const ManageSemesters = () => {
     const { notify, confirm } = useFeedback();
     const [editing, setEditing] = useState(null);
@@ -17,18 +55,15 @@ const ManageSemesters = () => {
     const { refresh } = useAcademic();
     const [activeTab, setActiveTab] = useState('periods'); // 'periods' | 'semesters' | 'programs'
 
-    // Data lists
     const [semesters, setSemesters] = useState([]);
     const [periods, setPeriods] = useState([]);
     const [programs, setPrograms] = useState([]);
     const [departments, setDepartments] = useState([]);
 
-    // Modals
     const [showPeriodModal, setShowPeriodModal] = useState(false);
     const [showSemesterModal, setShowSemesterModal] = useState(false);
     const [showProgramModal, setShowProgramModal] = useState(false);
 
-    // Form inputs
     const [periodForm, setPeriodForm] = useState({
         semester_id: '1',
         name: '',
@@ -72,14 +107,11 @@ const ManageSemesters = () => {
     }, [notify]);
 
     useEffect(() => {
-        // State updates occur after the HTTP response, not synchronously in this effect.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchAllData();
+        Promise.resolve().then(fetchAllData);
     }, [fetchAllData]);
 
 
 
-    // Toggle đợt đăng ký
     const handleTogglePeriod = async (id) => {
         try {
             const res = await axiosClient.put(`/admin/registration-periods/${id}/toggle`);
@@ -92,7 +124,6 @@ const ManageSemesters = () => {
         }
     };
 
-    // Active học kỳ
     const handleSetActiveSemester = async (id) => {
         try {
             const res = await axiosClient.put(`/admin/semesters/${id}/active`);
@@ -106,7 +137,6 @@ const ManageSemesters = () => {
         }
     };
 
-    // Submit Create Period
     const handleCreatePeriod = async (e) => {
         e.preventDefault();
         try {
@@ -122,7 +152,6 @@ const ManageSemesters = () => {
         }
     };
 
-    // Submit Create Semester
     const handleCreateSemester = async (e) => {
         e.preventDefault();
         try {
@@ -138,7 +167,6 @@ const ManageSemesters = () => {
         }
     };
 
-    // Submit Create Program
     const handleCreateProgram = async (e) => {
         e.preventDefault();
         try {
@@ -208,7 +236,7 @@ const ManageSemesters = () => {
                     </li>
                 </ul>} filterTitle="Kế hoạch đào tạo" sheetTitle={activeTab === 'periods' ? 'Đợt đăng ký học phần' : activeTab === 'semesters' ? 'Sổ học kỳ' : 'Chương trình đào tạo'}>
 
-                {/* TAB 1: ĐỢT ĐĂNG KÝ HỌC PHẦN */}
+                
                 {activeTab === 'periods' && (
                     <div>
                         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -219,6 +247,10 @@ const ManageSemesters = () => {
                                 <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Đợt ĐKHP Mới
                             </button>
                         </div>
+                        <div className="alert alert-info py-2 px-3 small mb-3">
+                            <i className="bi bi-info-circle me-2"></i>
+                            Cổng đăng ký sẽ <strong>tự động mở khi đến giờ bắt đầu</strong> và <strong>tự động đóng khi hết hạn</strong> (khi công tắc đợt được bật).
+                        </div>
                         <div className="table-container-responsive">
                             <table className="table-modern text-center align-middle">
                                 <thead>
@@ -228,54 +260,60 @@ const ManageSemesters = () => {
                                         <th scope="col">Học Kỳ Áp Dụng</th>
                                         <th scope="col">Thời Gian Bắt Đầu - Kết Thúc</th>
                                         <th scope="col">Hạn Mức Tín Chỉ</th>
-                                        <th scope="col">Cổng Đăng Ký</th>
+                                        <th scope="col">Trạng Thái Cổng</th>
                                         <th scope="col">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {periods.map((rp, idx) => (
-                                        <tr key={rp.id}>
-                                            <td className="fw-semibold text-muted">{idx + 1}</td>
-                                            <td className="text-start fw-bold text-dark">{rp.name}</td>
-                                            <td>
-                                                <span className="badge bg-primary-subtle text-primary px-2 py-1">
-                                                    {rp.semester_name || 'Học kỳ hiện tại'}
-                                                </span>
-                                            </td>
-                                            <td className="small text-muted">
-                                                <div><i aria-hidden="true" className="bi bi-clock me-1 text-success"></i>{rp.start_time}</div>
-                                                <div><i aria-hidden="true" className="bi bi-clock-history me-1 text-danger"></i>{rp.end_time}</div>
-                                            </td>
-                                            <td>
-                                                <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
-                                                    Min: {rp.min_credits} | Max: {rp.max_credits} TC
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className={`badge ${rp.is_active === 1 ? 'bg-success' : 'bg-secondary'}`}>
-                                                    {rp.is_active === 1 ? 'ĐANG MỞ CỔNG' : 'ĐÃ ĐÓNG CỔNG'}
-                                                </span>
-                                            </td>
-                                            <td><RecordActions label={rp.name}>
-                                                <button disabled={pending} onClick={() => setEditing({ resource: 'registration-periods', record: rp })}>Sửa đợt đăng ký</button>
-                                                <button disabled={pending} onClick={() => remove('registration-periods', rp, rp.name)}>Xóa đợt đăng ký</button>
-                                                <button
-                                                    className={`btn btn-sm ${rp.is_active === 1 ? 'btn-outline-danger' : 'btn-outline-success'}`}
-                                                    onClick={() => handleTogglePeriod(rp.id)}
-                                                >
-                                                    <i aria-hidden="true" className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
-                                                    {rp.is_active === 1 ? 'Đóng Đợt' : 'Mở Đợt'}
-                                                </button></RecordActions>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {periods.map((rp, idx) => {
+                                        const status = getPeriodStatus(rp);
+                                        return (
+                                            <tr key={rp.id}>
+                                                <td className="fw-semibold text-muted">{idx + 1}</td>
+                                                <td className="text-start fw-bold text-dark">{rp.name}</td>
+                                                <td>
+                                                    <span className="badge bg-primary-subtle text-primary px-2 py-1">
+                                                        {rp.semester_name || 'Học kỳ hiện tại'}
+                                                    </span>
+                                                </td>
+                                                <td className="small text-muted">
+                                                    <div><i aria-hidden="true" className="bi bi-clock me-1 text-success"></i>{rp.start_time}</div>
+                                                    <div><i aria-hidden="true" className="bi bi-clock-history me-1 text-danger"></i>{rp.end_time}</div>
+                                                </td>
+                                                <td>
+                                                    <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
+                                                        Min: {rp.min_credits} | Max: {rp.max_credits} TC
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className={`badge ${status.badgeClass} px-2 py-1`}>
+                                                        {status.label}
+                                                    </span>
+                                                    <small className="d-block text-secondary mt-1">
+                                                        {status.detail}
+                                                    </small>
+                                                </td>
+                                                <td><RecordActions label={rp.name}>
+                                                    <button disabled={pending} onClick={() => setEditing({ resource: 'registration-periods', record: rp })}>Sửa đợt đăng ký</button>
+                                                    <button disabled={pending} onClick={() => remove('registration-periods', rp, rp.name)}>Xóa đợt đăng ký</button>
+                                                    <button
+                                                        className={`btn btn-sm ${rp.is_active === 1 ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                                                        onClick={() => handleTogglePeriod(rp.id)}
+                                                    >
+                                                        <i aria-hidden="true" className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
+                                                        {rp.is_active === 1 ? 'Tắt đợt' : 'Bật đợt'}
+                                                    </button></RecordActions>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 )}
 
-                {/* TAB 2: NĂM HỌC & HỌC KỲ */}
+                
                 {activeTab === 'semesters' && (
                     <div>
                         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -334,7 +372,7 @@ const ManageSemesters = () => {
                     </div>
                 )}
 
-                {/* TAB 3: CHƯƠNG TRÌNH ĐÀO TẠO */}
+                
                 {activeTab === 'programs' && (
                     <div>
                         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -385,7 +423,7 @@ const ManageSemesters = () => {
             {planSemester && <RegistrationPlans semester={planSemester} onClose={() => setPlanSemester(null)} />}
             {editing && <TrainingEditor {...editing} departments={departments} onClose={() => setEditing(null)} onSaved={saved} />}
             {curriculum && <CurriculumEditor {...curriculum} onClose={() => setCurriculum(null)} onSaved={saved} />}
-            {/* Modal Tạo Đợt Đăng Ký */}
+            
             {showPeriodModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowPeriodModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">
@@ -472,7 +510,7 @@ const ManageSemesters = () => {
                 </AccessibleDialog>
             )}
 
-            {/* Modal Tạo Học Kỳ */}
+            
             {showSemesterModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowSemesterModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">
@@ -549,7 +587,7 @@ const ManageSemesters = () => {
                 </AccessibleDialog>
             )}
 
-            {/* Modal Tạo Chương Trình */}
+            
             {showProgramModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowProgramModal(false)}>
                     <div className="modal-dialog modal-dialog-centered">

@@ -57,7 +57,6 @@ test('resit request is single-use, scoped, audited and recalculates GPA and cred
     const report = (await call('/registration/grades', '74dctt25001')).data;
     assert.equal(report.failed_subjects, 0); assert.equal(report.cumulative.passedCredits, 3);
     assert.equal(report.data.find(e => e.enrollment_id === 1).grade.total_score_10, 6.8);
-    // A later regular edit must not silently discard the recorded exam result.
     assert.equal((await call('/lecturer/update-grades', 'gv_thuan', { enrollment_id: 1, attendance_score: 5, midterm_score: 5, final_score: 0 })).status, 200);
     assert.equal(mockDb.grades.find(g => g.enrollment_id === 1).final_score, 8);
     assert.equal((await call('/lecturer/update-grades', 'gv_thuan', { enrollment_id: 1, attendance_score: null, midterm_score: 5, final_score: 8 })).status, 400);

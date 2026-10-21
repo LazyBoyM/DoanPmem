@@ -34,19 +34,15 @@ const ManageUsers = () => {
     }, [notify]);
 
     useEffect(() => {
-        // HTTP responses update state after the request settles.
-        // eslint-disable-next-line react/set-state-in-effect
-        fetchUsers();
+        Promise.resolve().then(fetchUsers);
     }, [fetchUsers]);
 
     const toggleStatus = async (targetUser) => {
-        // Kiểm tra an toàn: Không cho phép tự khóa tài khoản của chính mình
         if (currentUser && currentUser.id === targetUser.id) {
             notify('Bạn không thể tự khóa tài khoản của chính mình!');
             return;
         }
 
-        // Kiểm tra an toàn: Không cho phép khóa tài khoản Admin
         if (targetUser.role === 'ADMIN') {
             notify('Không thể khóa tài khoản Quản trị viên (Admin)!');
             return;

@@ -8,7 +8,6 @@ let initialization = null;
 let pool = null;
 let isConnected = false;
 
-// Mock in-memory database fallback
 const mockDb = {
     program_subjects: [],
     registration_submissions: [],
@@ -98,7 +97,6 @@ const mockDb = {
 async function connectDatabase() {
     validateRuntime();
     if (process.env.DB_MODE === 'mock') { isConnected = false; return; }
-    // Configuration errors must never silently select the demo database.
     const candidate = mysql.createPool(databaseConfig());
     try {
         const conn = await candidate.getConnection();

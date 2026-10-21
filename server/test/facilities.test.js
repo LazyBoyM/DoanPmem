@@ -110,11 +110,9 @@ test('rename keeps room identity and timetable uses current catalog labels and l
 });
 test('schedule edits preserve enrollment and reject lecturer/student conflicts atomically', async () => {
     const previous = structuredClone(mockDb.class_schedules);
-    // Class 2 is taught by another lecturer but has the same enrolled students.
     const conflict = { ...session, day_of_week: 4, start_period: 4, room_id: 3, week_to: 16 };
     assert.equal((await request('/admin/classes/1/schedule', { schedules: [conflict] }, 'PUT')).status, 400);
     assert.deepEqual(mockDb.class_schedules, previous);
-    // Lecturer collision against class 3 in a different room.
     assert.equal((await request('/admin/classes/1/schedule', { schedules: [{ ...session, day_of_week: 2, start_period: 2 }] }, 'PUT')).status, 400);
     const enrollments = structuredClone(mockDb.enrollments);
     assert.equal((await request('/admin/classes/1/schedule', { schedules: [{ ...session, room_id: 3 }, { ...session, day_of_week: 7, room_id: 3 }] }, 'PUT')).status, 200);

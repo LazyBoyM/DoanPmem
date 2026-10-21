@@ -20,9 +20,7 @@ export default function AcademicProvider({ children }) {
         finally { setLoading(false); }
     }, [user]);
     useEffect(() => {
-        // State updates occur after the HTTP response, not synchronously in this effect.
-        // eslint-disable-next-line react/set-state-in-effect
-        refresh();
+        Promise.resolve().then(refresh);
         const timer = setInterval(refresh, 30000);
         window.addEventListener('focus', refresh);
         return () => { clearInterval(timer); window.removeEventListener('focus', refresh); };

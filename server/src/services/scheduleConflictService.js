@@ -1,14 +1,6 @@
-/**
- * Dịch vụ kiểm tra xung đột thời khóa biểu và tính toán học tập
- */
 
-/**
- * Kiểm tra xem 2 buổi học có bị trùng lịch không.
- * Điều kiện trùng:
- * 1. Cùng thứ trong tuần (day_of_week)
- * 2. Giao nhau về tuần học: max(week_from_1, week_from_2) <= min(week_to_1, week_to_2)
- * 3. Giao nhau về tiết học: max(start_1, start_2) < min(start_1 + len_1, start_2 + len_2)
- */
+
+
 function isScheduleOverlap(s1, s2) {
     if (s1.day_of_week !== s2.day_of_week) {
         return false;
@@ -28,9 +20,7 @@ function isScheduleOverlap(s1, s2) {
     return Math.max(start1, start2) < Math.min(end1, end2);
 }
 
-/**
- * Kiểm tra một lớp học phần mới có bị trùng lịch với danh sách các lớp đã đăng ký không
- */
+
 function checkScheduleConflicts(candidateSchedules, enrolledClassesWithSchedules) {
     for (const cand of candidateSchedules) {
         for (const enrolled of enrolledClassesWithSchedules) {
@@ -51,9 +41,7 @@ function checkScheduleConflicts(candidateSchedules, enrolledClassesWithSchedules
     return { hasConflict: false };
 }
 
-/**
- * Quy đổi điểm hệ 10 sang thang điểm 4 và điểm chữ theo chuẩn đào tạo tín chỉ
- */
+
 function convertGrade(attendance, midterm, final) {
     if (attendance === null || midterm === null || final === null) {
         return { total10: null, total4: null, letter: null };
