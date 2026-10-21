@@ -22,5 +22,5 @@ export default function AccessibleDialog({ children, onClose, label = 'Thông ti
             if (previous?.isConnected) previous.focus();
         };
     }, [titleId]);
-    return createPortal(<dialog ref={ref} className={`portal-dialog ${className}`} aria-label={label} onCancel={event => { event.preventDefault(); close.current(); }}>{feedback?.notice && <div className={`dialog-feedback alert alert-${feedback.notice.tone}`} role={feedback.notice.tone === 'danger' ? 'alert' : 'status'}><span>{feedback.notice.text}</span><button type="button" className="icon-button" aria-label="Đóng thông báo" onClick={feedback.dismissNotice}><i className="bi bi-x-lg" aria-hidden="true" /></button></div>}{children}</dialog>, document.body);
+    return createPortal(<dialog ref={ref} className={`portal-dialog ${className}`} aria-label={label} onCancel={event => { event.preventDefault(); close.current(); }} onClick={event => { if (event.target === ref.current) close.current(); }}>{feedback?.notice && <div className={`dialog-feedback alert alert-${feedback.notice.tone}`} role={feedback.notice.tone === 'danger' ? 'alert' : 'status'}><span>{feedback.notice.text}</span><button type="button" className="icon-button" aria-label="Đóng thông báo" onClick={feedback.dismissNotice}><i className="bi bi-x-lg" aria-hidden="true" /></button></div>}{children}</dialog>, document.body);
 }

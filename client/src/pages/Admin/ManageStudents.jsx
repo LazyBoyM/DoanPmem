@@ -626,7 +626,7 @@ const ManageStudents = () => {
             {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
 
             {selectedClassForModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setSelectedClassForModal(null)}>
+                <AccessibleDialog className="dialog-xl" onClose={() => setSelectedClassForModal(null)}>
                     <div className="modal-dialog modal-xl modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -716,7 +716,7 @@ const ManageStudents = () => {
             )}
 
             {enrollModalClass && (
-                <AccessibleDialog className="record-editor" onClose={() => { if (!enrollingClass) setEnrollModalClass(null); }}>
+                <AccessibleDialog className="dialog-lg" onClose={() => { if (!enrollingClass) setEnrollModalClass(null); }}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -936,7 +936,7 @@ const ManageStudents = () => {
                 </AccessibleDialog>
             )}
             {showModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
+                <AccessibleDialog className="dialog-lg" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">

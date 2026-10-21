@@ -501,7 +501,7 @@ const ManageClasses = () => {
 </RecordWorkspace>
 
             {showCreateModal && (
-                <AccessibleDialog className="record-editor" onClose={() => { if (!creating) setShowCreateModal(false); }}>
+                <AccessibleDialog className="dialog-lg" onClose={() => { if (!creating) setShowCreateModal(false); }}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -658,7 +658,7 @@ const ManageClasses = () => {
             {editingClass && <TrainingEditor resource="classes" record={editingClass} lecturers={lecturers} onClose={() => setEditingClass(null)} onSaved={fetchClasses} />}
             {scheduleClass && <ClassScheduleEditor courseClass={scheduleClass} rooms={rooms} onClose={() => setScheduleClass(null)} onSaved={fetchClasses} />}
             {showStudentsModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowStudentsModal(false)}>
+                <AccessibleDialog className="dialog-lg" onClose={() => setShowStudentsModal(false)}>
                     <div className="modal-dialog modal-dialog-centered modal-lg">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -719,8 +719,8 @@ const ManageClasses = () => {
             )}
 
             {showBatchModal && (
-                <AccessibleDialog className="record-editor" onClose={() => { if (!batchSubmitting) setShowBatchModal(false); }}>
-                    <div className="modal-dialog modal-dialog-centered modal-lg">
+                <AccessibleDialog className="dialog-xl" onClose={() => { if (!batchSubmitting) setShowBatchModal(false); }}>
+                    <div className="modal-dialog modal-dialog-centered modal-xl">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
                                 <div>
