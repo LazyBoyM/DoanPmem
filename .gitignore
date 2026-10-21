@@ -36,12 +36,10 @@ yarn-error.log*
 coverage/
 *.tsbuildinfo
 
-# Local design previews and review evidence
-.impeccable/mocks/
-.impeccable/review/
-.impeccable/references/
-.impeccable/decision*.json
-.impeccable/interface-contract.md
+# Design documentation & tooling
+.impeccable/
+DESIGN.md
+PRODUCT.md
 
 # OS Files
 .DS_Store
