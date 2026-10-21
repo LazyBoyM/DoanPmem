@@ -35,10 +35,10 @@ ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- 5. Sinh viên (Nhóm 6)
 INSERT INTO `students` (`id`, `user_id`, `student_code`, `full_name`, `gender`, `birth_date`, `phone`, `program_id`, `academic_year`, `class_name`) VALUES
-(1, 4, '74DCTT25001', 'Lê Văn Hiệp', 'Nam', '2004-05-12', '0911000001', 1, 'K74', '2DCTT745'),
-(2, 5, '74DCTT25002', 'Bùi Đức Huy', 'Nam', '2004-08-20', '0911000002', 1, 'K74', '2DCTT745'),
-(3, 6, '74DCTT25003', 'Nguyễn Lê Anh Minh', 'Nam', '2004-11-15', '0911000003', 1, 'K74', '2DCTT745'),
-(4, 7, '74DCTT25004', 'Vũ Ngọc Viên', 'Nam', '2004-03-09', '0911000004', 1, 'K74', '2DCTT745')
+(1, 4, '74DCTT25001', 'Lê Văn Hiệp', 'Nam', '2004-05-12', '0911000001', 1, 'K74', '74DCTT25'),
+(2, 5, '74DCTT25002', 'Bùi Đức Huy', 'Nam', '2004-08-20', '0911000002', 1, 'K74', '74DCTT25'),
+(3, 6, '74DCTT25003', 'Nguyễn Lê Anh Minh', 'Nam', '2004-11-15', '0911000003', 1, 'K74', '74DCTT24'),
+(4, 7, '74DCTT25004', 'Vũ Ngọc Viên', 'Nam', '2004-03-09', '0911000004', 1, 'K74', '74DCTT26')
 ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- 6. Môn học

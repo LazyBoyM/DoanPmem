@@ -44,10 +44,10 @@ const mockDb = {
         { id: 2, user_id: 3, lecturer_code: 'GV002', full_name: 'TS. Nguyễn Văn Nam', degree: 'Tiến sĩ', department_id: 1, phone: '0987654321', email: 'namnv@edu.vn' }
     ],
     students: [
-        { id: 1, user_id: 4, student_code: '74DCTT25001', full_name: 'Lê Văn Hiệp', gender: 'Nam', birth_date: '2004-05-12', phone: '0911000001', program_id: 1, academic_year: 'K74', class_name: '2DCTT745', program_name: 'Công nghệ Thông tin' },
-        { id: 2, user_id: 5, student_code: '74DCTT25002', full_name: 'Bùi Đức Huy', gender: 'Nam', birth_date: '2004-08-20', phone: '0911000002', program_id: 1, academic_year: 'K74', class_name: '2DCTT745', program_name: 'Công nghệ Thông tin' },
-        { id: 3, user_id: 6, student_code: '74DCTT25003', full_name: 'Nguyễn Lê Anh Minh', gender: 'Nam', birth_date: '2004-11-15', phone: '0911000003', program_id: 1, academic_year: 'K74', class_name: '2DCTT745', program_name: 'Công nghệ Thông tin' },
-        { id: 4, user_id: 7, student_code: '74DCTT25004', full_name: 'Vũ Ngọc Viên', gender: 'Nam', birth_date: '2004-03-09', phone: '0911000004', program_id: 1, academic_year: 'K74', class_name: '2DCTT745', program_name: 'Công nghệ Thông tin' }
+        { id: 1, user_id: 4, student_code: '74DCTT25001', full_name: 'Lê Văn Hiệp', gender: 'Nam', birth_date: '2004-05-12', phone: '0911000001', program_id: 1, academic_year: 'K74', class_name: '74DCTT25', program_name: 'Công nghệ Thông tin' },
+        { id: 2, user_id: 5, student_code: '74DCTT25002', full_name: 'Bùi Đức Huy', gender: 'Nam', birth_date: '2004-08-20', phone: '0911000002', program_id: 1, academic_year: 'K74', class_name: '74DCTT25', program_name: 'Công nghệ Thông tin' },
+        { id: 3, user_id: 6, student_code: '74DCTT25003', full_name: 'Nguyễn Lê Anh Minh', gender: 'Nam', birth_date: '2004-11-15', phone: '0911000003', program_id: 1, academic_year: 'K74', class_name: '74DCTT24', program_name: 'Công nghệ Thông tin' },
+        { id: 4, user_id: 7, student_code: '74DCTT25004', full_name: 'Vũ Ngọc Viên', gender: 'Nam', birth_date: '2004-03-09', phone: '0911000004', program_id: 1, academic_year: 'K74', class_name: '74DCTT26', program_name: 'Công nghệ Thông tin' }
     ],
     subjects: [
         { id: 1, subject_code: 'INT1001', subject_name: 'Lập trình Cơ sở', credits: 3, theory_periods: 30, practice_periods: 15, department_id: 1 },

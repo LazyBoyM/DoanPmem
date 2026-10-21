@@ -326,27 +326,62 @@ const getClassEnrolledStudents = endpoint(async (req, store) => {
     }) };
 });
 const getAdministrativeClasses = endpoint(async (_req, store) => {
-    const students = await store.list('students');
+    const [students, programs, semesters] = await Promise.all([
+        store.list('students'),
+        store.list('programs'),
+        store.list('semesters')
+    ]);
+    const programById = new Map(programs.map(p => [p.id, p]));
+    const activeSemester = semesters.find(s => s.is_active);
+    let planByStudent = new Map();
+    if (activeSemester) {
+        try {
+            const { registrationPlans } = require('../services/registrationPlans');
+            const plansResult = await registrationPlans(store, activeSemester.id);
+            if (plansResult && Array.isArray(plansResult.data)) {
+                planByStudent = new Map(plansResult.data.map(p => [p.student_id, p]));
+            }
+        } catch (_) {}
+    }
+
     const classesMap = new Map();
     for (const s of students) {
         const name = s.class_name ? s.class_name.trim() : 'Chưa phân lớp';
         if (!classesMap.has(name)) {
             classesMap.set(name, []);
         }
+        const plan = planByStudent.get(s.id);
         classesMap.get(name).push({
             id: s.id,
+            user_id: s.user_id,
             student_code: s.student_code,
             full_name: s.full_name,
+            gender: s.gender,
+            birth_date: s.birth_date,
+            phone: s.phone,
+            email: s.email,
             class_name: s.class_name,
-            academic_year: s.academic_year
+            academic_year: s.academic_year || 'K74',
+            program_id: s.program_id,
+            program_name: programById.get(s.program_id)?.program_name || 'Công nghệ Thông tin',
+            total_credits: plan?.total_credits || 0,
+            status: plan?.status || 'EMPTY',
+            status_label: plan?.status_label || 'Chưa đăng ký'
         });
     }
-    const result = Array.from(classesMap.entries()).map(([class_name, list]) => ({
-        class_name,
-        student_count: list.length,
-        students: list
-    })).sort((a, b) => a.class_name.localeCompare(b.class_name));
-    return { data: result };
+
+    const result = Array.from(classesMap.entries()).map(([class_name, list]) => {
+        const enrolledCount = list.filter(s => s.total_credits > 0).length;
+        return {
+            class_name,
+            student_count: list.length,
+            enrolled_count: enrolledCount,
+            program_name: list[0]?.program_name || 'Công nghệ Thông tin',
+            academic_year: list[0]?.academic_year || 'K74',
+            students: list
+        };
+    }).sort((a, b) => a.class_name.localeCompare(b.class_name));
+    return { data: result, active_semester: activeSemester || null };
 });
 const batchEnrollClass = endpoint(async (req, store) => {
     await lockFacilities(store);

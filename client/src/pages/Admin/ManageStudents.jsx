@@ -16,6 +16,16 @@ const ManageStudents = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterProgram, setFilterProgram] = useState('');
+    const [adminClasses, setAdminClasses] = useState([]);
+    const [viewMode, setViewMode] = useState('classes');
+    const [filterClass, setFilterClass] = useState('');
+    const [selectedClassForModal, setSelectedClassForModal] = useState(null);
+    const [enrollModalClass, setEnrollModalClass] = useState(null);
+    const [availableCourseClasses, setAvailableCourseClasses] = useState([]);
+    const [selectedCourseClassId, setSelectedCourseClassId] = useState('');
+    const [selectedClassStudentIds, setSelectedClassStudentIds] = useState([]);
+    const [enrollingClass, setEnrollingClass] = useState(false);
+    const [enrollResult, setEnrollResult] = useState(null);
 
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -37,12 +47,14 @@ const ManageStudents = () => {
 
     const fetchData = useCallback(async () => {
         try {
-            const [studentsRes, programsRes] = await Promise.all([
+            const [studentsRes, programsRes, adminClassesRes] = await Promise.all([
                 axiosClient.get('/admin/students'),
-                axiosClient.get('/admin/programs')
+                axiosClient.get('/admin/programs'),
+                axiosClient.get('/admin/administrative-classes')
             ]);
             if (studentsRes.success) setStudents(studentsRes.data);
             if (programsRes.success) setPrograms(programsRes.data);
+            if (adminClassesRes.success && Array.isArray(adminClassesRes.data)) setAdminClasses(adminClassesRes.data);
         } catch (err) {
             notify(err.response?.data?.message || 'Lỗi nạp dữ liệu sinh viên: Vui lòng dùng nút làm mới để thử lại.', 'danger');
         } finally {
@@ -166,12 +178,79 @@ const ManageStudents = () => {
         }
     };
 
+    const handleOpenClassEnroll = async (ac) => {
+        setEnrollModalClass(ac);
+        setSelectedClassStudentIds(ac.students.map(s => s.id));
+        setSelectedCourseClassId('');
+        setEnrollResult(null);
+        try {
+            const res = await axiosClient.get('/admin/classes');
+            if (res.success && Array.isArray(res.data)) {
+                const openOnes = res.data.filter(c => c.status === 'OPEN' && !c.grades_locked && c.current_students < c.max_students);
+                setAvailableCourseClasses(openOnes);
+                if (openOnes.length > 0) {
+                    setSelectedCourseClassId(String(openOnes[0].id));
+                }
+            }
+        } catch (err) {
+            notify(err.response?.data?.message || 'Không thể tải danh sách lớp học phần.', 'danger');
+        }
+    };
+
+    const handleToggleClassStudent = (id) => {
+        setSelectedClassStudentIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleToggleAllClassStudents = (classStudents) => {
+        if (!classStudents || classStudents.length === 0) return;
+        const allIds = classStudents.map(s => s.id);
+        const allSelected = allIds.every(id => selectedClassStudentIds.includes(id));
+        if (allSelected) {
+            setSelectedClassStudentIds(prev => prev.filter(id => !allIds.includes(id)));
+        } else {
+            setSelectedClassStudentIds(prev => Array.from(new Set([...prev, ...allIds])));
+        }
+    };
+
+    const handleBatchEnrollSubmit = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!selectedCourseClassId || selectedClassStudentIds.length === 0) {
+            notify('Vui lòng chọn lớp học phần và ít nhất một sinh viên.', 'warning');
+            return;
+        }
+        setEnrollingClass(true);
+        try {
+            const res = await axiosClient.post(`/admin/classes/${selectedCourseClassId}/batch-enroll`, {
+                student_ids: selectedClassStudentIds
+            });
+            if (res.success) {
+                setEnrollResult(res.data);
+                notify(res.message || 'Đăng ký thành công.', 'success');
+                fetchData();
+            }
+        } catch (err) {
+            notify(err.response?.data?.message || 'Lỗi khi đăng ký học phần cho lớp.', 'danger');
+        } finally {
+            setEnrollingClass(false);
+        }
+    };
+
     const filteredStudents = students.filter(st => {
         const matchSearch = (st.student_code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (st.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (st.class_name || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchProgram = filterProgram ? String(st.program_id) === filterProgram : true;
-        return matchSearch && matchProgram;
+        const matchClass = filterClass ? st.class_name === filterClass : true;
+        return matchSearch && matchProgram && matchClass;
+    });
+
+    const filteredAdminClasses = adminClasses.filter(ac => {
+        const query = searchTerm.toLowerCase();
+        return ac.class_name.toLowerCase().includes(query) ||
+               (ac.program_name || '').toLowerCase().includes(query) ||
+               ac.students.some(s => s.student_code.toLowerCase().includes(query) || s.full_name.toLowerCase().includes(query));
     });
 
     return (
@@ -182,7 +261,7 @@ const ManageStudents = () => {
                             Hồ sơ sinh viên
                         </h1>
                         <p className="text-muted small mb-0">
-                            Tra cứu, thêm mới, sửa đổi hồ sơ sinh viên, quản lý tài khoản và xuất danh sách
+                            Quản lý theo lớp sinh hoạt ({adminClasses.length} lớp), tra cứu hồ sơ cá nhân và xuất danh sách
                         </p>
                     </div>
                     <div className="d-flex gap-2">
@@ -194,7 +273,25 @@ const ManageStudents = () => {
                         </button>
                     </div>
                 </>} filters={<>
-                    <div className="col-md-7">
+                    <div className="col-12 mb-2">
+                        <div className="btn-group" role="group" aria-label="Chế độ quản lý">
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${viewMode === 'classes' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => setViewMode('classes')}
+                            >
+                                <i aria-hidden="true" className="bi bi-collection me-1"></i> Theo Lớp Sinh Hoạt ({adminClasses.length} lớp)
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${viewMode === 'students' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                onClick={() => setViewMode('students')}
+                            >
+                                <i aria-hidden="true" className="bi bi-people me-1"></i> Danh Sách Tất Cả Sinh Viên ({students.length})
+                            </button>
+                        </div>
+                    </div>
+                    <div className={viewMode === 'students' ? 'col-md-5' : 'col-md-12'}>
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
                                 <i aria-hidden="true" className="bi bi-search"></i>
@@ -202,28 +299,115 @@ const ManageStudents = () => {
                             <input
                                 type="text"
                                 className="form-control border-start-0"
-                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã SV, họ tên hoặc lớp sinh hoạt..."
+                                aria-label="Tìm trong danh sách"
+                                placeholder={viewMode === 'classes' ? "Tìm theo tên lớp (VD: 74DCTT24, 74DCTT25), ngành, mã SV..." : "Tìm kiếm theo mã SV, họ tên hoặc lớp sinh hoạt..."}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
-                    <div className="col-md-5">
-                        <select aria-label="Lọc phạm vi danh sách"                             className="form-select"
-                            value={filterProgram}
-                            onChange={(e) => setFilterProgram(e.target.value)}
-                        >
-                            <option value="">-- Tất cả ngành đào tạo --</option>
-                            {programs.map(p => (
-                                <option key={p.id} value={p.id}>{p.program_name} ({p.program_code})</option>
-                            ))}
-                        </select>
-                    </div>
-                </>} sheetTitle="Danh sách sinh viên" filterTitle="Tra cứu sinh viên" summary={<>
-                    <span className="badge bg-light text-dark border px-3 py-2">
-                        Hiển thị <b>{filteredStudents.length}</b> / <b>{students.length}</b> sinh viên
-                    </span>
+                    {viewMode === 'students' && (
+                        <>
+                            <div className="col-md-4">
+                                <select aria-label="Lọc theo lớp sinh hoạt" className="form-select"
+                                    value={filterClass}
+                                    onChange={(e) => setFilterClass(e.target.value)}
+                                >
+                                    <option value="">-- Tất cả lớp sinh hoạt --</option>
+                                    {adminClasses.map(ac => (
+                                        <option key={ac.class_name} value={ac.class_name}>{ac.class_name} ({ac.student_count} SV)</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-md-3">
+                                <select aria-label="Lọc phạm vi danh sách" className="form-select"
+                                    value={filterProgram}
+                                    onChange={(e) => setFilterProgram(e.target.value)}
+                                >
+                                    <option value="">-- Tất cả ngành đào tạo --</option>
+                                    {programs.map(p => (
+                                        <option key={p.id} value={p.id}>{p.program_name} ({p.program_code})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </>
+                    )}
+                </>} sheetTitle={viewMode === 'classes' ? "Danh sách lớp sinh hoạt" : "Danh sách sinh viên"} filterTitle="Bộ lọc & Tìm kiếm" summary={<>
+                    {viewMode === 'classes' ? (
+                        <span className="badge bg-light text-dark border px-3 py-2">
+                            Hiển thị <b>{filteredAdminClasses.length}</b> / <b>{adminClasses.length}</b> lớp sinh hoạt
+                        </span>
+                    ) : (
+                        <span className="badge bg-light text-dark border px-3 py-2">
+                            Hiển thị <b>{filteredStudents.length}</b> / <b>{students.length}</b> sinh viên
+                        </span>
+                    )}
                 </>}>
+{viewMode === 'classes' ? (
+    loading ? (
+        <div className="text-center py-5 text-muted">
+            <LoadingState compact />
+            Đang nạp danh sách lớp sinh hoạt...
+        </div>
+    ) : filteredAdminClasses.length === 0 ? (
+        <div className="text-center py-5 text-muted">
+            <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-2 text-secondary"></i>
+            Không tìm thấy lớp sinh hoạt nào phù hợp.
+        </div>
+    ) : (
+        <div className="row g-3">
+            {filteredAdminClasses.map(ac => {
+                const percent = ac.student_count > 0 ? Math.round((ac.enrolled_count / ac.student_count) * 100) : 0;
+                return (
+                    <div key={ac.class_name} className="col-md-6 col-lg-4">
+                        <div className="card h-100 shadow-sm border border-light-subtle rounded-3">
+                            <div className="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3 border-bottom">
+                                <span className="badge bg-primary fs-6 font-monospace px-2 py-1">
+                                    {ac.class_name}
+                                </span>
+                                <span className="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                    {ac.academic_year || 'K74'}
+                                </span>
+                            </div>
+                            <div className="card-body p-3 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div className="small fw-bold text-dark mb-1">
+                                        <i aria-hidden="true" className="bi bi-mortarboard me-1 text-primary"></i>
+                                        {ac.program_name || 'Công nghệ Thông tin'}
+                                    </div>
+                                    <div className="d-flex justify-content-between small text-muted my-2">
+                                        <span><i aria-hidden="true" className="bi bi-people me-1"></i>Sĩ số: <strong>{ac.student_count}</strong> SV</span>
+                                        <span><i aria-hidden="true" className="bi bi-check2-circle me-1 text-success"></i>Đã ĐK kỳ này: <strong className="text-success">{ac.enrolled_count}</strong></span>
+                                    </div>
+                                    <div className="progress mb-3" style={{ height: '6px' }} role="progressbar" aria-valuenow={percent} aria-valuemin="0" aria-valuemax="100">
+                                        <div className={`progress-bar ${percent === 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${percent}%` }}></div>
+                                    </div>
+                                </div>
+                                <div className="d-flex gap-2 mt-2 pt-2 border-top">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-info flex-fill"
+                                        onClick={() => setSelectedClassForModal(ac)}
+                                    >
+                                        <i aria-hidden="true" className="bi bi-people me-1"></i> Xem SV ({ac.student_count})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-success flex-fill"
+                                        onClick={() => handleOpenClassEnroll(ac)}
+                                        title="Đăng ký môn học cho lớp này"
+                                    >
+                                        <i aria-hidden="true" className="bi bi-person-plus-fill me-1"></i> Đăng ký môn
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    )
+) : (
 <div className="table-container-responsive">
                     <table className="table-modern directory-table text-center align-middle">
                         <thead>
@@ -319,10 +503,322 @@ const ManageStudents = () => {
                         </tbody>
                     </table>
                 </div>
+)}
 
 </RecordWorkspace>
 
             {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
+
+            {selectedClassForModal && (
+                <AccessibleDialog className="record-editor" onClose={() => setSelectedClassForModal(null)}>
+                    <div className="modal-dialog modal-xl modal-dialog-centered">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-light">
+                                <div>
+                                    <h5 className="modal-title fw-bold mb-0">
+                                        <i aria-hidden="true" className="bi bi-collection text-primary me-2"></i>
+                                        Lớp Sinh Hoạt: <span className="font-monospace text-primary">{selectedClassForModal.class_name}</span>
+                                    </h5>
+                                    <small className="text-muted">
+                                        {selectedClassForModal.program_name} · Khóa {selectedClassForModal.academic_year || 'K74'} · Sĩ số: <strong>{selectedClassForModal.student_count}</strong> sinh viên
+                                    </small>
+                                </div>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setSelectedClassForModal(null)}></button>
+                            </div>
+                            <div className="modal-body p-3">
+                                <div className="table-responsive">
+                                    <table className="table table-sm table-hover align-middle mb-0 text-center">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th scope="col">STT</th>
+                                                <th scope="col">Mã sinh viên</th>
+                                                <th scope="col" className="text-start">Họ và tên</th>
+                                                <th scope="col">Giới tính</th>
+                                                <th scope="col">Liên hệ</th>
+                                                <th scope="col">TC kỳ này</th>
+                                                <th scope="col">Trạng thái ĐK</th>
+                                                <th scope="col">Chi tiết</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedClassForModal.students.map((s, idx) => (
+                                                <tr key={s.id}>
+                                                    <td className="text-muted">{idx + 1}</td>
+                                                    <td><span className="badge bg-primary-subtle text-primary border font-monospace">{s.student_code}</span></td>
+                                                    <td className="text-start fw-semibold">{s.full_name}</td>
+                                                    <td>{s.gender || '---'}</td>
+                                                    <td className="small text-muted">{s.phone || s.email || '---'}</td>
+                                                    <td>
+                                                        <span className={`badge ${s.total_credits > 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-light text-muted border'}`}>
+                                                            {s.total_credits} TC
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`badge ${s.status === 'SUBMITTED' ? 'bg-success' : s.status === 'EMPTY' ? 'bg-secondary' : 'bg-warning text-dark'}`}>
+                                                            {s.status_label || (s.total_credits > 0 ? 'Đã đăng ký' : 'Chưa đăng ký')}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-outline-info py-0 px-2"
+                                                            onClick={() => {
+                                                                const fullStudent = students.find(st => st.id === s.id) || s;
+                                                                setDetailStudent(fullStudent);
+                                                            }}
+                                                            title="Xem hồ sơ cá nhân"
+                                                        >
+                                                            <i aria-hidden="true" className="bi bi-eye"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div className="modal-footer bg-light justify-content-between">
+                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedClassForModal(null)}>
+                                    Đóng
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-success btn-sm px-3"
+                                    onClick={() => {
+                                        const target = selectedClassForModal;
+                                        setSelectedClassForModal(null);
+                                        handleOpenClassEnroll(target);
+                                    }}
+                                >
+                                    <i aria-hidden="true" className="bi bi-person-plus-fill me-1"></i>
+                                    Đăng ký học phần cho lớp này
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </AccessibleDialog>
+            )}
+
+            {enrollModalClass && (
+                <AccessibleDialog className="record-editor" onClose={() => { if (!enrollingClass) setEnrollModalClass(null); }}>
+                    <div className="modal-dialog modal-lg modal-dialog-centered">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-light">
+                                <div>
+                                    <h5 className="modal-title fw-bold mb-0">
+                                        <i aria-hidden="true" className="bi bi-person-plus-fill text-success me-2"></i>
+                                        Đăng Ký Học Phần Cho Lớp: <span className="font-monospace text-primary">{enrollModalClass.class_name}</span>
+                                    </h5>
+                                    <small className="text-muted">
+                                        Sĩ số: {enrollModalClass.student_count} sinh viên · Chọn lớp học phần và xác nhận đăng ký
+                                    </small>
+                                </div>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={enrollingClass} onClick={() => setEnrollModalClass(null)}></button>
+                            </div>
+                            <div className="modal-body p-4">
+                                {enrollResult ? (
+                                    <div className="d-flex flex-column gap-3">
+                                        <div className={`alert ${enrollResult.enrolledCount > 0 ? 'alert-success' : 'alert-warning'} d-flex align-items-center mb-0`}>
+                                            <i aria-hidden="true" className={`bi ${enrollResult.enrolledCount > 0 ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} fs-4 me-3`}></i>
+                                            <div>
+                                                <div className="fw-bold">Kết quả xử lý đăng ký</div>
+                                                <div className="small">
+                                                    Đã thêm thành công: <strong className="text-success">{enrollResult.enrolledCount}</strong> sinh viên · Bỏ qua: <strong className="text-danger">{enrollResult.skippedCount}</strong> sinh viên.
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {enrollResult.skippedList && enrollResult.skippedList.length > 0 && (
+                                            <div>
+                                                <h6 className="fw-bold small text-danger mb-2">
+                                                    <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Danh sách sinh viên không thể đăng ký ({enrollResult.skippedList.length}):
+                                                </h6>
+                                                <div className="table-responsive border rounded" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                                    <table className="table table-sm table-hover align-middle mb-0">
+                                                        <thead className="table-light sticky-top">
+                                                            <tr>
+                                                                <th scope="col">MSSV</th>
+                                                                <th scope="col">Họ và tên</th>
+                                                                <th scope="col">Lý do</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {enrollResult.skippedList.map((item, idx) => (
+                                                                <tr key={idx}>
+                                                                    <td className="font-monospace fw-bold text-primary">{item.student_code}</td>
+                                                                    <td>{item.full_name}</td>
+                                                                    <td><span className="badge bg-danger-subtle text-danger border border-danger-subtle">{item.reason}</span></td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {enrollResult.successList && enrollResult.successList.length > 0 && (
+                                            <div>
+                                                <h6 className="fw-bold small text-success mb-2">
+                                                    <i aria-hidden="true" className="bi bi-check-circle me-1"></i> Sinh viên đã đăng ký thành công ({enrollResult.successList.length}):
+                                                </h6>
+                                                <div className="table-responsive border rounded" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                                                    <table className="table table-sm table-hover align-middle mb-0">
+                                                        <thead className="table-light sticky-top">
+                                                            <tr>
+                                                                <th scope="col">STT</th>
+                                                                <th scope="col">MSSV</th>
+                                                                <th scope="col">Họ và tên</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {enrollResult.successList.map((item, idx) => (
+                                                                <tr key={idx}>
+                                                                    <td>{idx + 1}</td>
+                                                                    <td className="font-monospace fw-bold text-success">{item.student_code}</td>
+                                                                    <td>{item.full_name}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="d-flex justify-content-end gap-2 pt-2">
+                                            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setEnrollResult(null)}>
+                                                <i aria-hidden="true" className="bi bi-arrow-repeat me-1"></i> Đăng ký môn khác
+                                            </button>
+                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => setEnrollModalClass(null)}>
+                                                Hoàn tất
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="mb-3">
+                                            <label htmlFor="select-course-class-for-admin-class" className="form-label small fw-bold">Chọn Lớp Học Phần Đang Mở *</label>
+                                            <select
+                                                id="select-course-class-for-admin-class"
+                                                className="form-select"
+                                                value={selectedCourseClassId}
+                                                onChange={(e) => setSelectedCourseClassId(e.target.value)}
+                                            >
+                                                <option value="">-- Chọn một lớp học phần --</option>
+                                                {availableCourseClasses.map(c => (
+                                                    <option key={c.id} value={c.id}>
+                                                        {c.class_code} · {c.subject_name} ({c.credits} TC) — Sĩ số: {c.current_students}/{c.max_students}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {availableCourseClasses.length === 0 && (
+                                                <div className="text-danger small mt-1">
+                                                    Hiện không có lớp học phần nào đang mở hoặc còn chỗ trống.
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {(() => {
+                                            const currentClassStudents = enrollModalClass.students || [];
+                                            const allSelected = currentClassStudents.length > 0 && currentClassStudents.every(s => selectedClassStudentIds.includes(s.id));
+                                            const chosenCourseClass = availableCourseClasses.find(c => String(c.id) === String(selectedCourseClassId));
+                                            const remainingSlots = chosenCourseClass ? Math.max(0, chosenCourseClass.max_students - chosenCourseClass.current_students) : 0;
+
+                                            return (
+                                                <div>
+                                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                                        <span className="small text-muted">
+                                                            Đang chọn: <strong className="text-primary">{selectedClassStudentIds.length}</strong> / {currentClassStudents.length} SV
+                                                            {chosenCourseClass && selectedClassStudentIds.length > remainingSlots && (
+                                                                <span className="text-danger ms-2 fw-semibold">
+                                                                    (Vượt số chỗ trống của lớp: {remainingSlots})
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-link p-0 text-decoration-none"
+                                                            onClick={() => handleToggleAllClassStudents(currentClassStudents)}
+                                                        >
+                                                            {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="table-responsive border rounded" style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                                                        <table className="table table-sm table-hover align-middle mb-0">
+                                                            <thead className="table-light sticky-top">
+                                                                <tr>
+                                                                    <th scope="col" style={{ width: '40px' }}>
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="form-check-input"
+                                                                            checked={allSelected}
+                                                                            onChange={() => handleToggleAllClassStudents(currentClassStudents)}
+                                                                            aria-label="Chọn tất cả sinh viên"
+                                                                        />
+                                                                    </th>
+                                                                    <th scope="col">MSSV</th>
+                                                                    <th scope="col">Họ và tên</th>
+                                                                    <th scope="col">TC kỳ này</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {currentClassStudents.map(s => {
+                                                                    const isChecked = selectedClassStudentIds.includes(s.id);
+                                                                    return (
+                                                                        <tr key={s.id} onClick={() => handleToggleClassStudent(s.id)} style={{ cursor: 'pointer' }}>
+                                                                            <td>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    className="form-check-input"
+                                                                                    checked={isChecked}
+                                                                                    onChange={() => handleToggleClassStudent(s.id)}
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                    aria-label={`Chọn sinh viên ${s.full_name}`}
+                                                                                />
+                                                                            </td>
+                                                                            <td className="font-monospace fw-bold text-primary">{s.student_code}</td>
+                                                                            <td>{s.full_name}</td>
+                                                                            <td className="small text-muted">{s.total_credits} TC</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        <div className="modal-footer bg-light px-0 pb-0 mt-4">
+                                            <button type="button" className="btn btn-secondary btn-sm" disabled={enrollingClass} onClick={() => setEnrollModalClass(null)}>
+                                                Hủy
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-success btn-sm px-3"
+                                                disabled={enrollingClass || !selectedCourseClassId || selectedClassStudentIds.length === 0}
+                                                onClick={handleBatchEnrollSubmit}
+                                            >
+                                                {enrollingClass ? (
+                                                    <>
+                                                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                                                        Đang xử lý đăng ký...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i>
+                                                        Đăng ký cho {selectedClassStudentIds.length} sinh viên
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </AccessibleDialog>
+            )}
             {showModal && (
                 <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -394,12 +890,18 @@ const ManageStudents = () => {
                                             <label className="form-label small fw-bold" htmlFor="ManageStudents-field-6">Lớp sinh hoạt *</label>
                                             <input id="ManageStudents-field-6"
                                                 type="text"
-                                                className="form-control"
-                                                placeholder="VD: 2DCTT745"
+                                                className="form-control text-uppercase font-monospace"
+                                                placeholder="VD: 74DCTT25"
+                                                list="admin-class-options"
                                                 required
                                                 value={formData.class_name}
-                                                onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+                                                onChange={(e) => setFormData({ ...formData, class_name: e.target.value.toUpperCase() })}
                                             />
+                                            <datalist id="admin-class-options">
+                                                {adminClasses.map(ac => (
+                                                    <option key={ac.class_name} value={ac.class_name} />
+                                                ))}
+                                            </datalist>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold" htmlFor="ManageStudents-field-7">Chương trình / ngành</label>
