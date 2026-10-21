@@ -262,7 +262,7 @@ const ManageSubjects = () => {
 </RecordWorkspace>
 
             {showModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
+                <AccessibleDialog className="dialog-lg" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">

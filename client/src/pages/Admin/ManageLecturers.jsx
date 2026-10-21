@@ -294,7 +294,7 @@ const ManageLecturers = () => {
 </RecordWorkspace>
 
             {showModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowModal(false)}>
+                <AccessibleDialog className="dialog-md" onClose={() => setShowModal(false)}>
                     <div className="modal-dialog modal-md modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
