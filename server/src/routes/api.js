@@ -75,6 +75,8 @@ for (const [resource, handlers] of Object.entries({ buildings: ['getBuildings', 
     router.delete(`/admin/${resource}/:id`, verifyToken, requireRole(['ADMIN']), facilityController[handlers[3]]);
 }
 router.get('/admin/classes/:id/students', verifyToken, requireRole(['ADMIN']), adminController.getClassEnrolledStudents);
+router.get('/admin/administrative-classes', verifyToken, requireRole(['ADMIN']), adminController.getAdministrativeClasses);
+router.post('/admin/classes/:id/batch-enroll', verifyToken, requireRole(['ADMIN']), adminController.batchEnrollClass);
 
 router.get('/reports/export-class-excel/:classId', verifyToken, requireRole(['LECTURER', 'ADMIN']), requireClassAccess, reportController.exportClassStudentsExcel);
 router.get('/reports/export-students-excel', verifyToken, requireRole(['ADMIN']), reportController.exportAllStudentsExcel);

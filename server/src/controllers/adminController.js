@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { lockFacilities, resolveRooms } = require('../services/facilities');
 const { endpoint, fail } = require('../services/store');
-const { integer, text, dateTime, requireRow, hasGrade, classesWithDetails, validateSchedules, validateClassConflicts, isPeriodOpen } = require('../services/academic');
+const { integer, text, dateTime, requireRow, hasGrade, classesWithDetails, validateSchedules, validateClassConflicts, isPeriodOpen, enrollmentsWithDetails } = require('../services/academic');
 const ok = message => ({ message });
 async function unique(store, table, key, value, except) {
     if ((await store.list(table)).some(row => row.id !== except && String(row[key]).toLowerCase() === String(value).toLowerCase())) fail(`${key} đã được sử dụng.`, 409);
@@ -325,6 +325,180 @@ const getClassEnrolledStudents = endpoint(async (req, store) => {
         return { ...s, ...g, student_id: s?.id, enrollment_id: e.id, enrollment_time: e.enrollment_time };
     }) };
 });
+const getAdministrativeClasses = endpoint(async (_req, store) => {
+    const students = await store.list('students');
+    const classesMap = new Map();
+    for (const s of students) {
+        const name = s.class_name ? s.class_name.trim() : 'Chưa phân lớp';
+        if (!classesMap.has(name)) {
+            classesMap.set(name, []);
+        }
+        classesMap.get(name).push({
+            id: s.id,
+            student_code: s.student_code,
+            full_name: s.full_name,
+            class_name: s.class_name,
+            academic_year: s.academic_year
+        });
+    }
+    const result = Array.from(classesMap.entries()).map(([class_name, list]) => ({
+        class_name,
+        student_count: list.length,
+        students: list
+    })).sort((a, b) => a.class_name.localeCompare(b.class_name));
+    return { data: result };
+});
+const batchEnrollClass = endpoint(async (req, store) => {
+    await lockFacilities(store);
+    const cls = await requireRow(store, 'course_classes', req.params.id, 'Lớp học phần');
+    if (cls.status === 'CANCELLED' || cls.grades_locked) fail('Lớp đã hủy hoặc khóa điểm không thể đăng ký.');
+
+    let targetStudents = [];
+    if (Array.isArray(req.body.student_ids) && req.body.student_ids.length > 0) {
+        const ids = req.body.student_ids.map(id => integer(id, 'Mã ID sinh viên'));
+        targetStudents = await store.related('students', 'id', ids);
+    } else if (req.body.class_name) {
+        targetStudents = await store.list('students', { class_name: String(req.body.class_name).trim() });
+    } else if (Array.isArray(req.body.student_codes) && req.body.student_codes.length > 0) {
+        const allStudents = await store.list('students');
+        const codeSet = new Set(req.body.student_codes.map(c => String(c).trim().toUpperCase()));
+        targetStudents = allStudents.filter(s => codeSet.has(s.student_code.toUpperCase()));
+    } else {
+        fail('Vui lòng chọn lớp sinh hoạt hoặc danh sách sinh viên.');
+    }
+
+    if (!targetStudents.length) fail('Không tìm thấy sinh viên nào phù hợp để đăng ký.');
+
+    const prerequisites = await store.list('prerequisites', { subject_id: cls.subject_id });
+    const schedules = await store.list('class_schedules', { course_class_id: cls.id });
+    const { isScheduleOverlap } = require('../services/scheduleConflictService');
+    const classes = await classesWithDetails(store);
+
+    let enrolledCount = 0;
+    const successList = [];
+    const skippedList = [];
+    let currentCapacity = cls.current_students;
+
+    for (const student of targetStudents) {
+        if (currentCapacity >= cls.max_students) {
+            skippedList.push({
+                student_code: student.student_code,
+                full_name: student.full_name,
+                reason: 'Lớp đã đủ sĩ số tối đa (' + cls.max_students + ' chỗ)'
+            });
+            continue;
+        }
+
+        const allEnrollments = await enrollmentsWithDetails(store, student.id);
+        const currentSemesterEnrollments = allEnrollments.filter(e => e.semester_id === cls.semester_id && e.status === 'ENROLLED');
+
+        if (currentSemesterEnrollments.some(e => e.id === cls.id)) {
+            skippedList.push({
+                student_code: student.student_code,
+                full_name: student.full_name,
+                reason: 'Đã có tên trong lớp học phần này'
+            });
+            continue;
+        }
+
+        if (currentSemesterEnrollments.some(e => e.subject_id === cls.subject_id)) {
+            skippedList.push({
+                student_code: student.student_code,
+                full_name: student.full_name,
+                reason: 'Đã đăng ký môn học này ở lớp khác trong học kỳ'
+            });
+            continue;
+        }
+
+        let failedPrereq = false;
+        for (const p of prerequisites) {
+            const hasPassed = allEnrollments.some(e =>
+                e.subject_id === p.prerequisite_subject_id &&
+                e.grade?.total_score_10 != null &&
+                Number(e.grade.total_score_10) >= Number(p.min_grade_required)
+            );
+            if (!hasPassed) {
+                failedPrereq = true;
+                break;
+            }
+        }
+        if (failedPrereq) {
+            skippedList.push({
+                student_code: student.student_code,
+                full_name: student.full_name,
+                reason: 'Chưa đạt điều kiện môn tiên quyết'
+            });
+            continue;
+        }
+
+        let hasConflict = false;
+        let conflictName = '';
+        for (const enrolled of currentSemesterEnrollments) {
+            if (enrolled.id === cls.id) continue;
+            const otherClass = classes.find(c => c.id === enrolled.id);
+            if (otherClass && otherClass.schedules) {
+                for (const s of schedules) {
+                    for (const o of otherClass.schedules) {
+                        if (isScheduleOverlap(s, o)) {
+                            hasConflict = true;
+                            conflictName = otherClass.class_code;
+                            break;
+                        }
+                    }
+                    if (hasConflict) break;
+                }
+            }
+            if (hasConflict) break;
+        }
+
+        if (hasConflict) {
+            skippedList.push({
+                student_code: student.student_code,
+                full_name: student.full_name,
+                reason: 'Trùng lịch với lớp ' + conflictName
+            });
+            continue;
+        }
+
+        const existing = await store.one('enrollments', { student_id: student.id, course_class_id: cls.id });
+        if (existing) {
+            await store.update('enrollments', existing.id, { status: 'ENROLLED', enrollment_time: new Date() });
+        } else {
+            await store.insert('enrollments', {
+                student_id: student.id,
+                course_class_id: cls.id,
+                status: 'ENROLLED',
+                enrollment_time: new Date()
+            });
+        }
+
+        await store.remove('registration_submissions', { student_id: student.id, semester_id: cls.semester_id });
+        currentCapacity++;
+        enrolledCount++;
+        successList.push({
+            student_code: student.student_code,
+            full_name: student.full_name
+        });
+    }
+
+    if (enrolledCount > 0) {
+        await store.update('course_classes', cls.id, { current_students: currentCapacity });
+    }
+
+    return {
+        message: `Đã xử lý: Đăng ký thành công ${enrolledCount}/${targetStudents.length} sinh viên.`,
+        data: {
+            total: targetStudents.length,
+            enrolledCount,
+            skippedCount: skippedList.length,
+            successList,
+            skippedList,
+            current_students: currentCapacity,
+            max_students: cls.max_students
+        }
+    };
+}, true);
 module.exports = { getDashboardStats, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
     getAllLecturers, createLecturer: createProfile(false), updateLecturer: updateProfile(false), deleteLecturer: deleteProfile(false), getAllSubjects, createSubject, updateSubject, deleteSubject,
-    getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassSchedule, updateClassStatus, getClassEnrolledStudents, getAllDepartments };
+    getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassSchedule, updateClassStatus, getClassEnrolledStudents, getAllDepartments,
+    getAdministrativeClasses, batchEnrollClass };

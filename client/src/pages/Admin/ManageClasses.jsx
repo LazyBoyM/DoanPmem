@@ -25,6 +25,16 @@ const ManageClasses = () => {
     const [selectedClass, setSelectedClass] = useState(null);
     const [enrolledStudents, setEnrolledStudents] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [showBatchModal, setShowBatchModal] = useState(false);
+    const [batchTargetClass, setBatchTargetClass] = useState(null);
+    const [adminClasses, setAdminClasses] = useState([]);
+    const [loadingAdminClasses, setLoadingAdminClasses] = useState(false);
+    const [batchMode, setBatchMode] = useState('class');
+    const [selectedAdminClass, setSelectedAdminClass] = useState('');
+    const [manualCodesInput, setManualCodesInput] = useState('');
+    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+    const [batchSubmitting, setBatchSubmitting] = useState(false);
+    const [batchResult, setBatchResult] = useState(null);
 
     const [formData, setFormData] = useState({
         class_code: '',
@@ -166,6 +176,103 @@ const ManageClasses = () => {
         }
     };
 
+    const handleOpenBatchEnroll = async (c) => {
+        setBatchTargetClass(c);
+        setShowBatchModal(true);
+        setBatchResult(null);
+        setSelectedStudentIds([]);
+        setSelectedAdminClass('');
+        setManualCodesInput('');
+        setBatchMode('class');
+        setLoadingAdminClasses(true);
+        try {
+            const res = await axiosClient.get('/admin/administrative-classes');
+            if (res.success && Array.isArray(res.data)) {
+                setAdminClasses(res.data);
+                if (res.data.length > 0) {
+                    const firstClass = res.data[0];
+                    setSelectedAdminClass(firstClass.class_name);
+                    setSelectedStudentIds(firstClass.students.map(s => s.id));
+                }
+            }
+        } catch (err) {
+            notify(err.response?.data?.message || 'Không thể tải danh sách lớp sinh hoạt.', 'danger');
+        } finally {
+            setLoadingAdminClasses(false);
+        }
+    };
+
+    const handleSelectAdminClass = (className) => {
+        setSelectedAdminClass(className);
+        const found = adminClasses.find(c => c.class_name === className);
+        if (found) {
+            setSelectedStudentIds(found.students.map(s => s.id));
+        } else {
+            setSelectedStudentIds([]);
+        }
+    };
+
+    const handleToggleStudent = (studentId) => {
+        setSelectedStudentIds(prev =>
+            prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]
+        );
+    };
+
+    const handleToggleAllStudents = (currentClassStudents) => {
+        if (!currentClassStudents || currentClassStudents.length === 0) return;
+        const allIds = currentClassStudents.map(s => s.id);
+        const allSelected = allIds.every(id => selectedStudentIds.includes(id));
+        if (allSelected) {
+            setSelectedStudentIds(prev => prev.filter(id => !allIds.includes(id)));
+        } else {
+            setSelectedStudentIds(prev => Array.from(new Set([...prev, ...allIds])));
+        }
+    };
+
+    const handleBatchSubmit = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!batchTargetClass) return;
+
+        let payload = {};
+        if (batchMode === 'class') {
+            if (selectedStudentIds.length === 0) {
+                notify('Vui lòng chọn ít nhất 1 sinh viên để đăng ký.', 'warning');
+                return;
+            }
+            payload = { student_ids: selectedStudentIds };
+        } else {
+            const codes = manualCodesInput
+                .split(/[\s,;\n\r]+/)
+                .map(s => s.trim().toUpperCase())
+                .filter(Boolean);
+            if (codes.length === 0) {
+                notify('Vui lòng nhập danh sách mã sinh viên.', 'warning');
+                return;
+            }
+            payload = { student_codes: codes };
+        }
+
+        setBatchSubmitting(true);
+        try {
+            const res = await axiosClient.post(`/admin/classes/${batchTargetClass.id}/batch-enroll`, payload);
+            if (res.success) {
+                setBatchResult(res.data);
+                notify(res.message || 'Đăng ký thành công.', 'success');
+                fetchClasses();
+                if (batchTargetClass) {
+                    setBatchTargetClass(prev => ({
+                        ...prev,
+                        current_students: res.data.current_students
+                    }));
+                }
+            }
+        } catch (err) {
+            notify(err.response?.data?.message || 'Lỗi khi đăng ký hàng loạt.', 'danger');
+        } finally {
+            setBatchSubmitting(false);
+        }
+    };
+
     const filteredClasses = classes.filter(c =>
         c.class_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.subject_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -257,6 +364,15 @@ const ManageClasses = () => {
                                                     title="Xem danh sách sinh viên đã đăng ký" aria-label="Xem danh sách sinh viên đã đăng ký"
                                                 >
                                                     <i aria-hidden="true" className="bi bi-people"></i>
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-outline-success"
+                                                    onClick={() => handleOpenBatchEnroll(c)}
+                                                    title="Đăng ký theo lớp sinh hoạt"
+                                                    aria-label="Đăng ký theo lớp sinh hoạt"
+                                                    disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked) || c.current_students >= c.max_students}
+                                                >
+                                                    <i aria-hidden="true" className="bi bi-person-plus-fill"></i>
                                                 </button>
                                                 <button className="btn btn-sm btn-outline-danger" title="Hủy lớp" aria-label="Hủy lớp" disabled={c.status === 'CANCELLED'} onClick={() => cancelClass(c.id)}><i aria-hidden="true" className="bi bi-x-circle"></i></button>
                                             </RecordActions>
@@ -488,6 +604,276 @@ const ManageClasses = () => {
                                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowStudentsModal(false)}>
                                     Đóng
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </AccessibleDialog>
+            )}
+
+            {showBatchModal && (
+                <AccessibleDialog className="record-editor" onClose={() => { if (!batchSubmitting) setShowBatchModal(false); }}>
+                    <div className="modal-dialog modal-dialog-centered modal-lg">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header bg-light">
+                                <div>
+                                    <h5 className="modal-title fw-bold mb-0">
+                                        <i aria-hidden="true" className="bi bi-person-plus-fill text-primary me-2"></i>Đăng Ký Theo Lớp / DSSV
+                                    </h5>
+                                    <small className="text-muted">
+                                        Lớp HP: <strong className="text-primary">{batchTargetClass?.class_code}</strong> ({batchTargetClass?.subject_name}) · Sĩ số: <strong className={batchTargetClass?.current_students >= batchTargetClass?.max_students ? 'text-danger' : 'text-success'}>{batchTargetClass?.current_students}/{batchTargetClass?.max_students}</strong> (Còn trống: {Math.max(0, (batchTargetClass?.max_students || 0) - (batchTargetClass?.current_students || 0))} chỗ)
+                                    </small>
+                                </div>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={batchSubmitting} onClick={() => setShowBatchModal(false)}></button>
+                            </div>
+                            <div className="modal-body p-4">
+                                {batchResult ? (
+                                    <div className="d-flex flex-column gap-3">
+                                        <div className={`alert ${batchResult.enrolledCount > 0 ? 'alert-success' : 'alert-warning'} d-flex align-items-center mb-0`}>
+                                            <i aria-hidden="true" className={`bi ${batchResult.enrolledCount > 0 ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} fs-4 me-3`}></i>
+                                            <div>
+                                                <div className="fw-bold">Kết quả xử lý đăng ký</div>
+                                                <div className="small">
+                                                    Đã thêm thành công: <strong className="text-success">{batchResult.enrolledCount}</strong> sinh viên · Bỏ qua: <strong className="text-danger">{batchResult.skippedCount}</strong> sinh viên.
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {batchResult.skippedList && batchResult.skippedList.length > 0 && (
+                                            <div>
+                                                <h6 className="fw-bold small text-danger mb-2">
+                                                    <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Danh sách sinh viên không thể đăng ký ({batchResult.skippedList.length}):
+                                                </h6>
+                                                <div className="table-responsive border rounded" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                                                    <table className="table table-sm table-hover align-middle mb-0">
+                                                        <thead className="table-light sticky-top">
+                                                            <tr>
+                                                                <th scope="col">MSSV</th>
+                                                                <th scope="col">Họ và tên</th>
+                                                                <th scope="col">Lý do</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {batchResult.skippedList.map((item, idx) => (
+                                                                <tr key={idx}>
+                                                                    <td className="font-monospace fw-bold text-primary">{item.student_code}</td>
+                                                                    <td>{item.full_name}</td>
+                                                                    <td><span className="badge bg-danger-subtle text-danger border border-danger-subtle">{item.reason}</span></td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {batchResult.successList && batchResult.successList.length > 0 && (
+                                            <div>
+                                                <h6 className="fw-bold small text-success mb-2">
+                                                    <i aria-hidden="true" className="bi bi-check-circle me-1"></i> Sinh viên đã đăng ký thành công ({batchResult.successList.length}):
+                                                </h6>
+                                                <div className="table-responsive border rounded" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                                    <table className="table table-sm table-hover align-middle mb-0">
+                                                        <thead className="table-light sticky-top">
+                                                            <tr>
+                                                                <th scope="col">STT</th>
+                                                                <th scope="col">MSSV</th>
+                                                                <th scope="col">Họ và tên</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {batchResult.successList.map((item, idx) => (
+                                                                <tr key={idx}>
+                                                                    <td>{idx + 1}</td>
+                                                                    <td className="font-monospace fw-bold text-success">{item.student_code}</td>
+                                                                    <td>{item.full_name}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="d-flex justify-content-end gap-2 pt-2">
+                                            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setBatchResult(null)}>
+                                                <i aria-hidden="true" className="bi bi-arrow-repeat me-1"></i>Đăng ký tiếp
+                                            </button>
+                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowBatchModal(false)}>
+                                                Hoàn tất
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <ul className="nav nav-pills mb-3" role="tablist">
+                                            <li className="nav-item" role="presentation">
+                                                <button
+                                                    type="button"
+                                                    className={`nav-link py-1 px-3 btn-sm ${batchMode === 'class' ? 'active' : ''}`}
+                                                    onClick={() => setBatchMode('class')}
+                                                >
+                                                    <i aria-hidden="true" className="bi bi-collection me-1"></i> Theo Lớp Sinh Hoạt
+                                                </button>
+                                            </li>
+                                            <li className="nav-item" role="presentation">
+                                                <button
+                                                    type="button"
+                                                    className={`nav-link py-1 px-3 btn-sm ${batchMode === 'manual' ? 'active' : ''}`}
+                                                    onClick={() => setBatchMode('manual')}
+                                                >
+                                                    <i aria-hidden="true" className="bi bi-card-text me-1"></i> Nhập Danh Sách MSSV
+                                                </button>
+                                            </li>
+                                        </ul>
+
+                                        {batchMode === 'class' ? (
+                                            <div>
+                                                {loadingAdminClasses ? (
+                                                    <div className="text-center py-4">
+                                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                                        <span className="ms-2 small text-muted">Đang tải danh sách lớp sinh hoạt...</span>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <div className="mb-3">
+                                                            <label htmlFor="batch-select-class" className="form-label small fw-bold">Chọn Lớp Sinh Hoạt</label>
+                                                            <select
+                                                                id="batch-select-class"
+                                                                className="form-select"
+                                                                value={selectedAdminClass}
+                                                                onChange={(e) => handleSelectAdminClass(e.target.value)}
+                                                            >
+                                                                <option value="">-- Chọn một lớp sinh hoạt --</option>
+                                                                {adminClasses.map(ac => (
+                                                                    <option key={ac.class_name} value={ac.class_name}>
+                                                                        {ac.class_name} ({ac.student_count} sinh viên)
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        {selectedAdminClass && (() => {
+                                                            const currentClass = adminClasses.find(c => c.class_name === selectedAdminClass);
+                                                            const currentStudents = currentClass ? currentClass.students : [];
+                                                            const allSelected = currentStudents.length > 0 && currentStudents.every(s => selectedStudentIds.includes(s.id));
+                                                            const remainingSlots = Math.max(0, (batchTargetClass?.max_students || 0) - (batchTargetClass?.current_students || 0));
+
+                                                            return (
+                                                                <div>
+                                                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                                                        <span className="small text-muted">
+                                                                            Đang chọn: <strong className="text-primary">{selectedStudentIds.length}</strong> / {currentStudents.length} SV
+                                                                            {selectedStudentIds.length > remainingSlots && (
+                                                                                <span className="text-danger ms-2 fw-semibold">
+                                                                                    (Vượt quá số chỗ trống: {remainingSlots})
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm btn-link p-0 text-decoration-none"
+                                                                            onClick={() => handleToggleAllStudents(currentStudents)}
+                                                                        >
+                                                                            {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="table-responsive border rounded" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                                                                        <table className="table table-sm table-hover align-middle mb-0">
+                                                                            <thead className="table-light sticky-top">
+                                                                                <tr>
+                                                                                    <th scope="col" style={{ width: '40px' }}>
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            className="form-check-input"
+                                                                                            checked={allSelected}
+                                                                                            onChange={() => handleToggleAllStudents(currentStudents)}
+                                                                                            aria-label="Chọn tất cả sinh viên lớp này"
+                                                                                        />
+                                                                                    </th>
+                                                                                    <th scope="col">MSSV</th>
+                                                                                    <th scope="col">Họ và tên</th>
+                                                                                    <th scope="col">Khóa / Năm</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {currentStudents.map(s => {
+                                                                                    const isChecked = selectedStudentIds.includes(s.id);
+                                                                                    return (
+                                                                                        <tr key={s.id} onClick={() => handleToggleStudent(s.id)} style={{ cursor: 'pointer' }}>
+                                                                                            <td>
+                                                                                                <input
+                                                                                                    type="checkbox"
+                                                                                                    className="form-check-input"
+                                                                                                    checked={isChecked}
+                                                                                                    onChange={() => handleToggleStudent(s.id)}
+                                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                                    aria-label={`Chọn sinh viên ${s.full_name}`}
+                                                                                                />
+                                                                                            </td>
+                                                                                            <td className="font-monospace fw-bold text-primary">{s.student_code}</td>
+                                                                                            <td>{s.full_name}</td>
+                                                                                            <td className="small text-muted">{s.academic_year || '—'}</td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <div className="mb-3">
+                                                    <label htmlFor="batch-manual-codes" className="form-label small fw-bold">Danh Sách Mã Sinh Viên (MSSV)</label>
+                                                    <textarea
+                                                        id="batch-manual-codes"
+                                                        className="form-control font-monospace"
+                                                        rows="6"
+                                                        placeholder="Dán mã sinh viên cách nhau bằng dấu phẩy, khoảng trắng hoặc xuống dòng.&#10;VD:&#10;SV001&#10;SV002&#10;SV003"
+                                                        value={manualCodesInput}
+                                                        onChange={(e) => setManualCodesInput(e.target.value)}
+                                                    ></textarea>
+                                                    <div className="form-text small">
+                                                        Hệ thống sẽ tự động tách mã, tìm sinh viên tương ứng và kiểm tra điều kiện đăng ký.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="modal-footer bg-light px-0 pb-0 mt-4">
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary btn-sm"
+                                                disabled={batchSubmitting}
+                                                onClick={() => setShowBatchModal(false)}
+                                            >
+                                                Hủy
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary btn-sm px-3"
+                                                disabled={batchSubmitting || (batchMode === 'class' && selectedStudentIds.length === 0) || (batchMode === 'manual' && !manualCodesInput.trim())}
+                                                onClick={handleBatchSubmit}
+                                            >
+                                                {batchSubmitting ? (
+                                                    <>
+                                                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                                                        Đang xử lý...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i>
+                                                        Đăng ký cho {batchMode === 'class' ? `${selectedStudentIds.length} sinh viên` : 'danh sách'}
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
