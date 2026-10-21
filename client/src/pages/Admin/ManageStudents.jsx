@@ -22,6 +22,7 @@ const ManageStudents = () => {
     const [viewMode, setViewMode] = useState('classes');
     const [filterClass, setFilterClass] = useState('');
     const [selectedClassForModal, setSelectedClassForModal] = useState(null);
+    const [returnToClassModal, setReturnToClassModal] = useState(null);
     const [enrollModalClass, setEnrollModalClass] = useState(null);
     const [availableCourseClasses, setAvailableCourseClasses] = useState([]);
     const [selectedCourseClassId, setSelectedCourseClassId] = useState('');
@@ -106,6 +107,15 @@ const ManageStudents = () => {
         setShowModal(true);
     };
 
+    const handleCloseModal = () => {
+        setShowModal(false);
+        if (returnToClassModal) {
+            const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+            setSelectedClassForModal(refreshed);
+            setReturnToClassModal(null);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -114,6 +124,11 @@ const ManageStudents = () => {
                 if (res.success) {
                     notify('Cập nhật thông tin sinh viên thành công!', 'success');
                     setShowModal(false);
+                    if (returnToClassModal) {
+                        const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                        setSelectedClassForModal(refreshed);
+                        setReturnToClassModal(null);
+                    }
                     fetchData();
                 }
             } else {
@@ -121,6 +136,11 @@ const ManageStudents = () => {
                 if (res.success) {
                     notify('Thêm sinh viên mới thành công!', 'success');
                     setShowModal(false);
+                    if (returnToClassModal) {
+                        const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                        setSelectedClassForModal(refreshed);
+                        setReturnToClassModal(null);
+                    }
                     fetchData();
                 }
             }
@@ -455,9 +475,19 @@ const ManageStudents = () => {
                     <div key={ac.class_name} className="col-md-6 col-lg-4">
                         <div className="card h-100 shadow-sm border border-light-subtle rounded-3">
                             <div className="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3 border-bottom">
-                                <span className="badge bg-primary fs-6 font-monospace px-2 py-1">
-                                    {ac.class_name}
-                                </span>
+                                <button
+                                    type="button"
+                                    className="btn btn-link p-0 text-decoration-none"
+                                    onClick={() => {
+                                        setFilterClass(ac.class_name);
+                                        setViewMode('students');
+                                    }}
+                                    title={`Xem danh sách sinh viên lớp ${ac.class_name}`}
+                                >
+                                    <span className="badge bg-primary fs-6 font-monospace px-2 py-1">
+                                        {ac.class_name}
+                                    </span>
+                                </button>
                                 <span className="badge bg-secondary-subtle text-secondary border px-2 py-1">
                                     {ac.academic_year || 'K74'}
                                 </span>
@@ -587,31 +617,52 @@ const ManageStudents = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <RecordActions label={st.full_name || st.subject_name || st.username || st.class_code}>
-                                                <button className="btn btn-outline-info btn-sm px-2 py-1" title="Xem thông tin sinh viên" aria-label={`Xem thông tin ${st.full_name}`} onClick={() => setDetailStudent(st)}><i className="bi bi-eye" aria-hidden="true" /></button>
-
+                                            <div className="d-flex justify-content-center align-items-center gap-1">
                                                 <button
-                                                    className="btn btn-outline-warning btn-sm px-2 py-1"
-                                                    title="Đặt lại mật khẩu về 123456" aria-label="Đặt lại mật khẩu về 123456"
-                                                    onClick={() => handleResetPassword(st.user_id, st.student_code)}
+                                                    className="btn btn-outline-info btn-sm px-2 py-1"
+                                                    title="Xem hồ sơ sinh viên"
+                                                    aria-label={`Xem hồ sơ ${st.full_name}`}
+                                                    onClick={() => {
+                                                        setReturnToClassModal(null);
+                                                        setDetailStudent(st);
+                                                    }}
                                                 >
-                                                    <i aria-hidden="true" className="bi bi-key"></i> Mật khẩu
+                                                    <i className="bi bi-eye" aria-hidden="true" />
                                                 </button>
-                                                <button
-                                                    className={`btn btn-sm px-2 py-1 ${st.status === 1 ? 'btn-outline-secondary' : 'btn-outline-success'}`}
-                                                    title={st.status === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                                                    onClick={() => handleToggleStatus(st.user_id, st.status)}
-                                                >
-                                                    <i aria-hidden="true" className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i> {st.status === 1 ? 'Khóa' : 'Mở khóa'}
-                                                </button>
-                                                <button
-                                                    className="btn btn-outline-danger btn-sm px-2 py-1"
-                                                    title="Xóa hồ sơ sinh viên" aria-label="Xóa hồ sơ sinh viên"
-                                                    onClick={() => handleDelete(st.id, st.student_code, st.full_name)}
-                                                >
-                                                    <i aria-hidden="true" className="bi bi-trash"></i> Xóa
-                                                </button>
-                                            </RecordActions>
+                                                <RecordActions label={st.full_name || st.subject_name || st.username || st.class_code}>
+                                                    <button
+                                                        className="btn btn-outline-warning btn-sm px-2 py-1"
+                                                        title="Đặt lại mật khẩu về 123456" aria-label="Đặt lại mật khẩu về 123456"
+                                                        onClick={() => handleResetPassword(st.user_id, st.student_code)}
+                                                    >
+                                                        <i aria-hidden="true" className="bi bi-key"></i> Mật khẩu
+                                                    </button>
+                                                    <button
+                                                        className={`btn btn-sm px-2 py-1 ${st.status === 1 ? 'btn-outline-secondary' : 'btn-outline-success'}`}
+                                                        title={st.status === 1 ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                                                        onClick={() => handleToggleStatus(st.user_id, st.status)}
+                                                    >
+                                                        <i aria-hidden="true" className={`bi ${st.status === 1 ? 'bi-lock' : 'bi-unlock'}`}></i> {st.status === 1 ? 'Khóa' : 'Mở khóa'}
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-outline-primary btn-sm px-2 py-1"
+                                                        title="Chỉnh sửa sinh viên" aria-label="Chỉnh sửa sinh viên"
+                                                        onClick={() => {
+                                                            setReturnToClassModal(null);
+                                                            handleOpenEdit(st);
+                                                        }}
+                                                    >
+                                                        <i aria-hidden="true" className="bi bi-pencil-square"></i> Chỉnh sửa
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-outline-danger btn-sm px-2 py-1"
+                                                        title="Xóa hồ sơ sinh viên" aria-label="Xóa hồ sơ sinh viên"
+                                                        onClick={() => handleDelete(st.id, st.student_code, st.full_name)}
+                                                    >
+                                                        <i aria-hidden="true" className="bi bi-trash"></i> Xóa
+                                                    </button>
+                                                </RecordActions>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -623,7 +674,24 @@ const ManageStudents = () => {
 
 </RecordWorkspace>
 
-            {detailStudent && <StudentDetails key={detailStudent.id} student={detailStudent} onClose={() => setDetailStudent(null)} onEdit={st => { setDetailStudent(null); handleOpenEdit(st); }} />}
+            {detailStudent && (
+                <StudentDetails
+                    key={detailStudent.id}
+                    student={detailStudent}
+                    onClose={() => {
+                        setDetailStudent(null);
+                        if (returnToClassModal) {
+                            const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                            setSelectedClassForModal(refreshed);
+                            setReturnToClassModal(null);
+                        }
+                    }}
+                    onEdit={st => {
+                        setDetailStudent(null);
+                        handleOpenEdit(st);
+                    }}
+                />
+            )}
 
             {selectedClassForModal && (
                 <AccessibleDialog className="dialog-xl" onClose={() => setSelectedClassForModal(null)}>
@@ -680,6 +748,8 @@ const ManageStudents = () => {
                                                             className="btn btn-sm btn-outline-info py-0 px-2"
                                                             onClick={() => {
                                                                 const fullStudent = students.find(st => st.id === s.id) || s;
+                                                                setReturnToClassModal(selectedClassForModal);
+                                                                setSelectedClassForModal(null);
                                                                 setDetailStudent(fullStudent);
                                                             }}
                                                             title="Xem hồ sơ cá nhân"
@@ -694,14 +764,29 @@ const ManageStudents = () => {
                                 </div>
                             </div>
                             <div className="modal-footer bg-light justify-content-between">
-                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedClassForModal(null)}>
-                                    Đóng
-                                </button>
+                                <div className="d-flex gap-2">
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedClassForModal(null)}>
+                                        Đóng
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-primary btn-sm"
+                                        onClick={() => {
+                                            setFilterClass(selectedClassForModal.class_name);
+                                            setViewMode('students');
+                                            setSelectedClassForModal(null);
+                                        }}
+                                        title={`Chuyển sang xem danh sách toàn bộ sinh viên lớp ${selectedClassForModal.class_name}`}
+                                    >
+                                        <i aria-hidden="true" className="bi bi-table me-1"></i> Xem dạng bảng
+                                    </button>
+                                </div>
                                 <button
                                     type="button"
                                     className="btn btn-success btn-sm px-3"
                                     onClick={() => {
                                         const target = selectedClassForModal;
+                                        setReturnToClassModal(target);
                                         setSelectedClassForModal(null);
                                         handleOpenClassEnroll(target);
                                     }}
@@ -716,7 +801,19 @@ const ManageStudents = () => {
             )}
 
             {enrollModalClass && (
-                <AccessibleDialog className="dialog-lg" onClose={() => { if (!enrollingClass) setEnrollModalClass(null); }}>
+                <AccessibleDialog
+                    className="dialog-lg"
+                    onClose={() => {
+                        if (!enrollingClass) {
+                            setEnrollModalClass(null);
+                            if (returnToClassModal) {
+                                const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                                setSelectedClassForModal(refreshed);
+                                setReturnToClassModal(null);
+                            }
+                        }
+                    }}
+                >
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -729,7 +826,20 @@ const ManageStudents = () => {
                                         Sĩ số: {enrollModalClass.student_count} sinh viên · Chọn lớp học phần và xác nhận đăng ký
                                     </small>
                                 </div>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={enrollingClass} onClick={() => setEnrollModalClass(null)}></button>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    aria-label="Đóng cửa sổ"
+                                    disabled={enrollingClass}
+                                    onClick={() => {
+                                        setEnrollModalClass(null);
+                                        if (returnToClassModal) {
+                                            const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                                            setSelectedClassForModal(refreshed);
+                                            setReturnToClassModal(null);
+                                        }
+                                    }}
+                                ></button>
                             </div>
                             <div className="modal-body p-4">
                                 {enrollResult ? (
@@ -906,7 +1016,19 @@ const ManageStudents = () => {
                                         })()}
 
                                         <div className="modal-footer bg-light px-0 pb-0 mt-4">
-                                            <button type="button" className="btn btn-secondary btn-sm" disabled={enrollingClass} onClick={() => setEnrollModalClass(null)}>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary btn-sm"
+                                                disabled={enrollingClass}
+                                                onClick={() => {
+                                                    setEnrollModalClass(null);
+                                                    if (returnToClassModal) {
+                                                        const refreshed = adminClasses.find(c => c.class_name === returnToClassModal.class_name) || returnToClassModal;
+                                                        setSelectedClassForModal(refreshed);
+                                                        setReturnToClassModal(null);
+                                                    }
+                                                }}
+                                            >
                                                 Hủy
                                             </button>
                                             <button
@@ -936,7 +1058,7 @@ const ManageStudents = () => {
                 </AccessibleDialog>
             )}
             {showModal && (
-                <AccessibleDialog className="dialog-lg" onClose={() => setShowModal(false)}>
+                <AccessibleDialog className="dialog-lg" onClose={handleCloseModal}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
                         <div className="modal-content border-0 shadow">
                             <div className="modal-header bg-light">
@@ -944,7 +1066,7 @@ const ManageStudents = () => {
                                     <i aria-hidden="true" className={`bi ${isEditing ? 'bi-pencil-square text-warning' : 'bi-person-plus text-primary'} me-2`}></i>
                                     {isEditing ? 'Chỉnh Sửa Hồ Sơ Sinh Viên' : 'Thêm sinh viên'}
                                 </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={handleCloseModal}></button>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body p-4">
@@ -1062,7 +1184,7 @@ const ManageStudents = () => {
                                     </div>
                                 </div>
                                 <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowModal(false)}>Hủy</button>
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={handleCloseModal}>Hủy</button>
                                     <button type="submit" className="btn btn-primary btn-sm px-4">
                                         <i aria-hidden="true" className="bi bi-check-circle me-1"></i> {isEditing ? 'Lưu thay đổi' : 'Tạo hồ sơ sinh viên'}
                                     </button>
