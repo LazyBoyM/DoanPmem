@@ -18,6 +18,10 @@ const ManageClasses = () => {
     const [scheduleClass, setScheduleClass] = useState(null);
     const [editingClass, setEditingClass] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterSemester, setFilterSemester] = useState('');
+    const [filterSubject, setFilterSubject] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterLecturer, setFilterLecturer] = useState('');
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
@@ -273,11 +277,19 @@ const ManageClasses = () => {
         }
     };
 
-    const filteredClasses = classes.filter(c =>
-        c.class_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.subject_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.lecturer_name && c.lecturer_name.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredClasses = classes.filter(c => {
+        const query = searchTerm.toLowerCase();
+        const matchSearch = !query ||
+            c.class_code.toLowerCase().includes(query) ||
+            c.subject_name.toLowerCase().includes(query) ||
+            (c.lecturer_name && c.lecturer_name.toLowerCase().includes(query)) ||
+            (c.room && c.room.toLowerCase().includes(query));
+        const matchSemester = filterSemester ? String(c.semester_id) === filterSemester : true;
+        const matchSubject = filterSubject ? String(c.subject_id) === filterSubject : true;
+        const matchStatus = filterStatus ? c.status === filterStatus : true;
+        const matchLecturer = filterLecturer ? String(c.lecturer_id) === filterLecturer : true;
+        return matchSearch && matchSemester && matchSubject && matchStatus && matchLecturer;
+    });
 
     return (
         <div className="admin-pane">
@@ -294,26 +306,105 @@ const ManageClasses = () => {
                         <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Mở lớp học phần
                     </button>
                 </>} filters={<>
-                    <div className="col-md-7">
+                    <div>
+                        <label htmlFor="classes-search-input" className="form-label small fw-bold text-muted mb-1">Tìm kiếm</label>
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
                                 <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
+                                id="classes-search-input"
                                 type="text"
                                 className="form-control border-start-0"
-                                aria-label="Tìm trong danh sách" placeholder="Tìm kiếm theo mã lớp, tên môn học hoặc giảng viên..."
+                                aria-label="Tìm kiếm lớp học phần"
+                                placeholder="Mã lớp, môn học, giảng viên..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
-                    <div className="col-md-5 d-flex justify-content-md-end align-items-center">
-                        <span className="badge bg-light text-dark border px-3 py-2">
-                            Tổng số: <strong className="text-primary">{filteredClasses.length}</strong> lớp học phần
-                        </span>
+                    <div>
+                        <label htmlFor="classes-filter-semester" className="form-label small fw-bold text-muted mb-1">Học kỳ</label>
+                        <select
+                            id="classes-filter-semester"
+                            aria-label="Lọc theo học kỳ"
+                            className="form-select"
+                            value={filterSemester}
+                            onChange={(e) => setFilterSemester(e.target.value)}
+                        >
+                            <option value="">-- Tất cả học kỳ --</option>
+                            {semesters.map(s => (
+                                <option key={s.id} value={s.id}>
+                                    {s.semester_name} {s.is_active ? '(Hiện hành)' : ''}
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                </>} sheetTitle="Danh sách lớp học phần" filterTitle="Tra cứu lớp" >
+                    <div>
+                        <label htmlFor="classes-filter-subject" className="form-label small fw-bold text-muted mb-1">Môn học</label>
+                        <select
+                            id="classes-filter-subject"
+                            aria-label="Lọc theo môn học"
+                            className="form-select"
+                            value={filterSubject}
+                            onChange={(e) => setFilterSubject(e.target.value)}
+                        >
+                            <option value="">-- Tất cả môn học --</option>
+                            {subjects.map(s => (
+                                <option key={s.id} value={s.id}>{s.subject_code} - {s.subject_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="classes-filter-status" className="form-label small fw-bold text-muted mb-1">Trạng thái lớp</label>
+                        <select
+                            id="classes-filter-status"
+                            aria-label="Lọc theo trạng thái lớp"
+                            className="form-select"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="">-- Tất cả trạng thái --</option>
+                            <option value="OPEN">Đang Mở Đăng Ký</option>
+                            <option value="CLOSED">Đã Đóng Đăng Ký</option>
+                            <option value="CANCELLED">Đã Hủy Lớp</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="classes-filter-lecturer" className="form-label small fw-bold text-muted mb-1">Giảng viên</label>
+                        <select
+                            id="classes-filter-lecturer"
+                            aria-label="Lọc theo giảng viên"
+                            className="form-select"
+                            value={filterLecturer}
+                            onChange={(e) => setFilterLecturer(e.target.value)}
+                        >
+                            <option value="">-- Tất cả giảng viên --</option>
+                            {lecturers.map(l => (
+                                <option key={l.id} value={l.id}>{l.full_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {(searchTerm || filterSemester || filterSubject || filterStatus || filterLecturer) && (
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm w-100"
+                            onClick={() => {
+                                setSearchTerm('');
+                                setFilterSemester('');
+                                setFilterSubject('');
+                                setFilterStatus('');
+                                setFilterLecturer('');
+                            }}
+                        >
+                            <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Xóa bộ lọc
+                        </button>
+                    )}
+                </>} sheetTitle="Danh sách lớp học phần" filterTitle="Bộ lọc lớp học phần" summary={<>
+                    <span className="badge bg-light text-dark border px-3 py-2">
+                        Hiển thị <b>{filteredClasses.length}</b> / <b>{classes.length}</b> lớp học phần
+                    </span>
+                </>}>
 <div className="table-container-responsive">
                     <table className="table-modern class-directory-table text-center">
                         <thead>
@@ -381,8 +472,25 @@ const ManageClasses = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-4 text-muted">
-                                        Không tìm thấy lớp học phần phù hợp.
+                                    <td colSpan="7" className="text-center py-5 text-muted">
+                                        <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                                        <div className="fw-semibold">Không tìm thấy lớp học phần phù hợp.</div>
+                                        <div className="small mb-3">Hãy thử thay đổi từ khóa hoặc điều chỉnh các tiêu chí lọc.</div>
+                                        {(searchTerm || filterSemester || filterSubject || filterStatus || filterLecturer) && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline-primary btn-sm"
+                                                onClick={() => {
+                                                    setSearchTerm('');
+                                                    setFilterSemester('');
+                                                    setFilterSubject('');
+                                                    setFilterStatus('');
+                                                    setFilterLecturer('');
+                                                }}
+                                            >
+                                                <i aria-hidden="true" className="bi bi-arrow-counterclockwise me-1"></i> Đặt lại bộ lọc
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             )}

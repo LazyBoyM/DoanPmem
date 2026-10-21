@@ -16,6 +16,8 @@ const ManageStudents = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterProgram, setFilterProgram] = useState('');
+    const [filterYear, setFilterYear] = useState('');
+    const [filterEnrollStatus, setFilterEnrollStatus] = useState('');
     const [adminClasses, setAdminClasses] = useState([]);
     const [viewMode, setViewMode] = useState('classes');
     const [filterClass, setFilterClass] = useState('');
@@ -238,19 +240,37 @@ const ManageStudents = () => {
     };
 
     const filteredStudents = students.filter(st => {
-        const matchSearch = (st.student_code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (st.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (st.class_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const query = searchTerm.toLowerCase();
+        const matchSearch = !query ||
+            (st.student_code || '').toLowerCase().includes(query) ||
+            (st.full_name || '').toLowerCase().includes(query) ||
+            (st.class_name || '').toLowerCase().includes(query);
         const matchProgram = filterProgram ? String(st.program_id) === filterProgram : true;
         const matchClass = filterClass ? st.class_name === filterClass : true;
-        return matchSearch && matchProgram && matchClass;
+        const matchYear = filterYear ? (st.academic_year || 'K74') === filterYear : true;
+        let matchEnroll = true;
+        if (filterEnrollStatus) {
+            const classObj = adminClasses.find(c => c.class_name === st.class_name);
+            const studentDetail = classObj?.students?.find(s => s.id === st.id);
+            const credits = studentDetail?.total_credits || 0;
+            if (filterEnrollStatus === 'ENROLLED') matchEnroll = credits > 0;
+            else if (filterEnrollStatus === 'NOT_ENROLLED') matchEnroll = credits === 0;
+        }
+        return matchSearch && matchProgram && matchClass && matchYear && matchEnroll;
     });
 
     const filteredAdminClasses = adminClasses.filter(ac => {
         const query = searchTerm.toLowerCase();
-        return ac.class_name.toLowerCase().includes(query) ||
-               (ac.program_name || '').toLowerCase().includes(query) ||
-               ac.students.some(s => s.student_code.toLowerCase().includes(query) || s.full_name.toLowerCase().includes(query));
+        const matchSearch = !query ||
+            ac.class_name.toLowerCase().includes(query) ||
+            (ac.program_name || '').toLowerCase().includes(query) ||
+            ac.students.some(s => s.student_code.toLowerCase().includes(query) || s.full_name.toLowerCase().includes(query));
+        const matchClass = filterClass ? ac.class_name === filterClass : true;
+        const matchProgram = filterProgram ? ac.students.some(s => String(s.program_id) === filterProgram) : true;
+        const matchYear = filterYear ? (ac.academic_year === filterYear || ac.students.some(s => s.academic_year === filterYear)) : true;
+        const matchEnroll = filterEnrollStatus === 'ENROLLED' ? ac.enrolled_count > 0 :
+                            filterEnrollStatus === 'NOT_ENROLLED' ? ac.enrolled_count === 0 : true;
+        return matchSearch && matchClass && matchProgram && matchYear && matchEnroll;
     });
 
     return (
@@ -273,64 +293,121 @@ const ManageStudents = () => {
                         </button>
                     </div>
                 </>} filters={<>
-                    <div className="col-12 mb-2">
-                        <div className="btn-group" role="group" aria-label="Chế độ quản lý">
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${viewMode === 'classes' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setViewMode('classes')}
-                            >
-                                <i aria-hidden="true" className="bi bi-collection me-1"></i> Theo Lớp Sinh Hoạt ({adminClasses.length} lớp)
-                            </button>
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${viewMode === 'students' ? 'btn-primary' : 'btn-outline-primary'}`}
-                                onClick={() => setViewMode('students')}
-                            >
-                                <i aria-hidden="true" className="bi bi-people me-1"></i> Danh Sách Tất Cả Sinh Viên ({students.length})
-                            </button>
-                        </div>
+                    <div>
+                        <label className="form-label small fw-bold text-muted mb-1">Chế độ quản lý</label>
+                        <ul className="nav nav-pills" role="tablist">
+                            <li className="nav-item">
+                                <button
+                                    type="button"
+                                    className={`nav-link ${viewMode === 'classes' ? 'active' : 'bg-light text-dark'}`}
+                                    onClick={() => setViewMode('classes')}
+                                >
+                                    <i aria-hidden="true" className="bi bi-collection me-2"></i>Theo Lớp Sinh Hoạt ({adminClasses.length})
+                                </button>
+                            </li>
+                            <li className="nav-item">
+                                <button
+                                    type="button"
+                                    className={`nav-link ${viewMode === 'students' ? 'active' : 'bg-light text-dark'}`}
+                                    onClick={() => setViewMode('students')}
+                                >
+                                    <i aria-hidden="true" className="bi bi-people me-2"></i>Danh Sách Sinh Viên ({students.length})
+                                </button>
+                            </li>
+                        </ul>
                     </div>
-                    <div className={viewMode === 'students' ? 'col-md-5' : 'col-md-12'}>
+                    <div>
+                        <label htmlFor="students-search-input" className="form-label small fw-bold text-muted mb-1">Tìm kiếm</label>
                         <div className="input-group">
                             <span className="input-group-text bg-white border-end-0 text-muted">
                                 <i aria-hidden="true" className="bi bi-search"></i>
                             </span>
                             <input
+                                id="students-search-input"
                                 type="text"
                                 className="form-control border-start-0"
-                                aria-label="Tìm trong danh sách"
-                                placeholder={viewMode === 'classes' ? "Tìm theo tên lớp (VD: 74DCTT24, 74DCTT25), ngành, mã SV..." : "Tìm kiếm theo mã SV, họ tên hoặc lớp sinh hoạt..."}
+                                aria-label="Tìm kiếm trong danh sách"
+                                placeholder={viewMode === 'classes' ? "Tên lớp (74DCTT24), SV..." : "Mã SV, họ tên, lớp..."}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
-                    {viewMode === 'students' && (
-                        <>
-                            <div className="col-md-4">
-                                <select aria-label="Lọc theo lớp sinh hoạt" className="form-select"
-                                    value={filterClass}
-                                    onChange={(e) => setFilterClass(e.target.value)}
-                                >
-                                    <option value="">-- Tất cả lớp sinh hoạt --</option>
-                                    {adminClasses.map(ac => (
-                                        <option key={ac.class_name} value={ac.class_name}>{ac.class_name} ({ac.student_count} SV)</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="col-md-3">
-                                <select aria-label="Lọc phạm vi danh sách" className="form-select"
-                                    value={filterProgram}
-                                    onChange={(e) => setFilterProgram(e.target.value)}
-                                >
-                                    <option value="">-- Tất cả ngành đào tạo --</option>
-                                    {programs.map(p => (
-                                        <option key={p.id} value={p.id}>{p.program_name} ({p.program_code})</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </>
+                    <div>
+                        <label htmlFor="students-filter-class" className="form-label small fw-bold text-muted mb-1">Lớp sinh hoạt</label>
+                        <select
+                            id="students-filter-class"
+                            aria-label="Lọc theo lớp sinh hoạt"
+                            className="form-select"
+                            value={filterClass}
+                            onChange={(e) => setFilterClass(e.target.value)}
+                        >
+                            <option value="">-- Tất cả lớp sinh hoạt --</option>
+                            {adminClasses.map(ac => (
+                                <option key={ac.class_name} value={ac.class_name}>
+                                    {ac.class_name} ({ac.student_count} SV)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="students-filter-program" className="form-label small fw-bold text-muted mb-1">Ngành đào tạo</label>
+                        <select
+                            id="students-filter-program"
+                            aria-label="Lọc theo ngành đào tạo"
+                            className="form-select"
+                            value={filterProgram}
+                            onChange={(e) => setFilterProgram(e.target.value)}
+                        >
+                            <option value="">-- Tất cả ngành --</option>
+                            {programs.map(p => (
+                                <option key={p.id} value={p.id}>{p.program_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="students-filter-year" className="form-label small fw-bold text-muted mb-1">Khóa học</label>
+                        <select
+                            id="students-filter-year"
+                            aria-label="Lọc theo khóa học"
+                            className="form-select"
+                            value={filterYear}
+                            onChange={(e) => setFilterYear(e.target.value)}
+                        >
+                            <option value="">-- Tất cả khóa --</option>
+                            {Array.from(new Set(students.map(s => s.academic_year || 'K74'))).map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="students-filter-enroll" className="form-label small fw-bold text-muted mb-1">Tiến độ ĐK môn kỳ này</label>
+                        <select
+                            id="students-filter-enroll"
+                            aria-label="Lọc theo tiến độ đăng ký môn"
+                            className="form-select"
+                            value={filterEnrollStatus}
+                            onChange={(e) => setFilterEnrollStatus(e.target.value)}
+                        >
+                            <option value="">-- Tất cả tiến độ --</option>
+                            <option value="ENROLLED">Đã đăng ký học phần</option>
+                            <option value="NOT_ENROLLED">Chưa đăng ký học phần</option>
+                        </select>
+                    </div>
+                    {(searchTerm || filterClass || filterProgram || filterYear || filterEnrollStatus) && (
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm w-100"
+                            onClick={() => {
+                                setSearchTerm('');
+                                setFilterClass('');
+                                setFilterProgram('');
+                                setFilterYear('');
+                                setFilterEnrollStatus('');
+                            }}
+                        >
+                            <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Xóa bộ lọc
+                        </button>
                     )}
                 </>} sheetTitle={viewMode === 'classes' ? "Danh sách lớp sinh hoạt" : "Danh sách sinh viên"} filterTitle="Bộ lọc & Tìm kiếm" summary={<>
                     {viewMode === 'classes' ? (
@@ -351,8 +428,24 @@ const ManageStudents = () => {
         </div>
     ) : filteredAdminClasses.length === 0 ? (
         <div className="text-center py-5 text-muted">
-            <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-2 text-secondary"></i>
-            Không tìm thấy lớp sinh hoạt nào phù hợp.
+            <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+            <div className="fw-semibold">Không tìm thấy lớp sinh hoạt nào phù hợp với bộ lọc.</div>
+            <div className="small mb-3">Hãy thử thay đổi hoặc đặt lại tiêu chí lọc.</div>
+            {(searchTerm || filterClass || filterProgram || filterYear || filterEnrollStatus) && (
+                <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => {
+                        setSearchTerm('');
+                        setFilterClass('');
+                        setFilterProgram('');
+                        setFilterYear('');
+                        setFilterEnrollStatus('');
+                    }}
+                >
+                    <i aria-hidden="true" className="bi bi-arrow-counterclockwise me-1"></i> Đặt lại bộ lọc
+                </button>
+            )}
         </div>
     ) : (
         <div className="row g-3">
@@ -432,9 +525,25 @@ const ManageStudents = () => {
                                 </tr>
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="py-4 text-muted">
-                                        <i aria-hidden="true" className="bi bi-inbox fs-3 d-block mb-1 text-secondary"></i>
-                                        Không tìm thấy sinh viên nào phù hợp.
+                                    <td colSpan="8" className="py-5 text-center text-muted">
+                                        <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                                        <div className="fw-semibold">Không tìm thấy sinh viên nào phù hợp.</div>
+                                        <div className="small mb-3">Hãy thử thay đổi từ khóa hoặc điều chỉnh bộ lọc.</div>
+                                        {(searchTerm || filterClass || filterProgram || filterYear || filterEnrollStatus) && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline-primary btn-sm"
+                                                onClick={() => {
+                                                    setSearchTerm('');
+                                                    setFilterClass('');
+                                                    setFilterProgram('');
+                                                    setFilterYear('');
+                                                    setFilterEnrollStatus('');
+                                                }}
+                                            >
+                                                <i aria-hidden="true" className="bi bi-arrow-counterclockwise me-1"></i> Đặt lại bộ lọc
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ) : (
@@ -453,9 +562,16 @@ const ManageStudents = () => {
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
-                                                {st.class_name}
-                                            </span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-link p-0 text-decoration-none"
+                                                onClick={() => setFilterClass(st.class_name)}
+                                                title={`Lọc theo lớp ${st.class_name}`}
+                                            >
+                                                <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
+                                                    {st.class_name}
+                                                </span>
+                                            </button>
                                         </td>
                                         <td>
                                             <div className="small fw-semibold">{st.program_name || 'Công nghệ Thông tin'}</div>
