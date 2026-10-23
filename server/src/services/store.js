@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const tables = new Set(['users', 'departments', 'programs', 'students', 'lecturers', 'subjects', 'prerequisites', 'semesters', 'registration_periods', 'course_classes', 'class_schedules', 'enrollments', 'grades', 'resit_attempts', 'buildings', 'rooms', 'program_subjects', 'registration_submissions']);
+const tables = new Set(['users', 'departments', 'programs', 'students', 'lecturers', 'subjects', 'prerequisites', 'semesters', 'registration_periods', 'course_classes', 'class_schedules', 'enrollments', 'grades', 'resit_attempts', 'buildings', 'rooms', 'program_subjects', 'registration_submissions', 'audit_logs']);
 const counters = new Map();
 let mockQueue = Promise.resolve();
 

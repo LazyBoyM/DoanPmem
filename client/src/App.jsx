@@ -16,6 +16,7 @@ const ManageSubjects = lazy(() => import('./pages/Admin/ManageSubjects'));
 const ManageSemesters = lazy(() => import('./pages/Admin/ManageSemesters'));
 const ManageClasses = lazy(() => import('./pages/Admin/ManageClasses'));
 const ManageFacilities = lazy(() => import('./pages/Admin/ManageFacilities'));
+const AuditLogs = lazy(() => import('./pages/Admin/AuditLogs'));
 const LecturerDashboard = lazy(() => import('./pages/Lecturer/Dashboard'));
 const LecturerTimetable = lazy(() => import('./pages/Lecturer/Timetable'));
 const StudentDashboard = lazy(() => import('./pages/Student/Dashboard'));
@@ -46,7 +47,8 @@ const AppRoutes = () => {
                     
                     <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                         <Route path="/admin" element={<AdminDashboard />} />
-                        <Route path="/admin/academic" element={<Navigate to="/admin/students" replace />} />
+                        <Route path="/admin/academic" element={<AcademicStudents />} />
+                        <Route path="/admin/audit-logs" element={<AuditLogs />} />
                         <Route path="/admin/grades" element={<LecturerDashboard />} />
                         <Route path="/admin/users" element={<ManageUsers />} />
                         <Route path="/admin/students" element={<ManageStudents />} />

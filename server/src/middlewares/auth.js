@@ -13,13 +13,26 @@ async function verifyToken(req, res, next) {
     const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        const user = isUsingMock()
-            ? mockDb.users.find(u => u.id === decoded.id)
-            : (await getPool().query('SELECT id, status, role FROM users WHERE id = ?', [decoded.id]))[0][0];
+        let user;
+        if (isUsingMock()) {
+            user = mockDb.users.find(u => u.id === decoded.id);
+        } else {
+            try {
+                const [rows] = await getPool().query('SELECT id, status, role FROM users WHERE id = ?', [decoded.id]);
+                user = rows[0];
+            } catch (queryErr) {
+                if (['ECONNRESET', 'PROTOCOL_CONNECTION_LOST', 'ETIMEDOUT'].includes(queryErr.code)) {
+                    const [retryRows] = await getPool().query('SELECT id, status, role FROM users WHERE id = ?', [decoded.id]);
+                    user = retryRows[0];
+                } else {
+                    throw queryErr;
+                }
+            }
+        }
         if (!user || Number(user.status) !== 1 || user.role !== decoded.role) {
             return res.status(401).json({ success: false, message: 'Tài khoản không còn hoạt động. Vui lòng đăng nhập lại.' });
         }
-        req.user = decoded; // { id, username, role, student_id, lecturer_id }
+        req.user = decoded;
         next();
     } catch (err) {
         if (!['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(err.name)) {

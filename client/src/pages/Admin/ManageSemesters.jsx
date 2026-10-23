@@ -1,672 +1,708 @@
-import RegistrationPlans from '../../components/RegistrationPlans';
-import TrainingEditor, { CurriculumEditor } from '../../components/TrainingEditor';
-import RecordActions from '../../components/RecordActions';
-import RecordWorkspace from '../../components/RecordWorkspace';
-import AccessibleDialog from '../../components/AccessibleDialog';
-import { useFeedback } from '../../context/feedback-context';
 import { useCallback, useEffect, useState } from 'react';
-import { useAcademic } from '../../context/academic-context';
 import axiosClient from '../../api/axiosClient';
+import { useAcademic } from '../../context/academic-context';
+import { useFeedback } from '../../context/feedback-context';
+import { Button, Input, Select, Badge, Table, Modal, Tabs, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import RegistrationPlans from '../../components/RegistrationPlans';
+import { CurriculumEditor } from '../../components/TrainingEditor';
 
 function getPeriodStatus(rp) {
-    if (Number(rp.is_active) !== 1) {
-        return {
-            label: 'ĐÃ TẮT',
-            badgeClass: 'bg-secondary text-white',
-            detail: 'Đã tắt thủ công'
-        };
-    }
-    const parse = (val) => {
-        if (!val) return new Date(NaN);
-        const raw = String(val).replace(' ', 'T');
-        return new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw.length === 10 ? `${raw}T00:00:00+07:00` : `${raw}+07:00`);
-    };
-    const now = new Date();
-    const start = parse(rp.start_time);
-    const end = parse(rp.end_time);
-
-    if (now < start) {
-        return {
-            label: 'CHƯA TỚI HẠN',
-            badgeClass: 'bg-warning text-dark',
-            detail: 'Chưa tới giờ mở'
-        };
-    }
-    if (now > end) {
-        return {
-            label: 'ĐÃ HẾT HẠN',
-            badgeClass: 'bg-danger-subtle text-danger border border-danger-subtle',
-            detail: 'Tự động đóng cổng'
-        };
-    }
+  if (Number(rp.is_active) !== 1) {
     return {
-        label: 'ĐANG MỞ CỔNG',
-        badgeClass: 'bg-success text-white',
-        detail: 'Đang tiếp nhận đăng ký'
+      label: 'ĐÃ TẮT',
+      variant: 'neutral',
+      detail: 'Đã tắt thủ công'
     };
+  }
+  const parse = (val) => {
+    if (!val) return new Date(NaN);
+    const raw = String(val).replace(' ', 'T');
+    return new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw.length === 10 ? `${raw}T00:00:00+07:00` : `${raw}+07:00`);
+  };
+  const now = new Date();
+  const start = parse(rp.start_time);
+  const end = parse(rp.end_time);
+
+  if (now < start) {
+    return {
+      label: 'CHƯA TỚI HẠN',
+      variant: 'warning',
+      detail: 'Chưa tới giờ mở cổng'
+    };
+  }
+  if (now > end) {
+    return {
+      label: 'ĐÃ HẾT HẠN',
+      variant: 'danger',
+      detail: 'Tự động đóng cổng'
+    };
+  }
+  return {
+    label: 'ĐANG MỞ CỔNG',
+    variant: 'success',
+    detail: 'Đang tiếp nhận đăng ký'
+  };
 }
 
-const ManageSemesters = () => {
-    const { notify, confirm } = useFeedback();
-    const [editing, setEditing] = useState(null);
-    const [planSemester, setPlanSemester] = useState(null);
-    const [curriculum, setCurriculum] = useState(null);
-    const [pending, setPending] = useState(false);
-    const { refresh } = useAcademic();
-    const [activeTab, setActiveTab] = useState('periods'); // 'periods' | 'semesters' | 'programs'
+export default function ManageSemesters() {
+  const { notify } = useFeedback();
+  const { refresh } = useAcademic();
 
-    const [semesters, setSemesters] = useState([]);
-    const [periods, setPeriods] = useState([]);
-    const [programs, setPrograms] = useState([]);
-    const [departments, setDepartments] = useState([]);
+  const [activeTab, setActiveTab] = useState('periods');
+  const [semesters, setSemesters] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    const [showPeriodModal, setShowPeriodModal] = useState(false);
-    const [showSemesterModal, setShowSemesterModal] = useState(false);
-    const [showProgramModal, setShowProgramModal] = useState(false);
+  const [curriculumProgram, setCurriculumProgram] = useState(null);
+  const [planSemester, setPlanSemester] = useState(null);
 
-    const [periodForm, setPeriodForm] = useState({
-        semester_id: '1',
-        name: '',
-        start_time: '2026-09-01 00:00:00',
-        end_time: '2026-10-30 23:59:59',
-        min_credits: 12,
-        max_credits: 24
-    });
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [showSemesterModal, setShowSemesterModal] = useState(false);
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-    const [semesterForm, setSemesterForm] = useState({
-        semester_code: '',
-        semester_name: '',
-        academic_year: '2026-2027',
-        start_date: '2026-09-01',
-        end_date: '2027-01-15'
-    });
+  const [periodForm, setPeriodForm] = useState({
+    semester_id: '1',
+    name: '',
+    start_time: '2026-09-01 00:00:00',
+    end_time: '2026-10-30 23:59:59',
+    min_credits: 12,
+    max_credits: 24
+  });
 
-    const [programForm, setProgramForm] = useState({
-        program_code: '',
-        program_name: '',
-        department_id: '1',
-        total_credits: 135,
-        duration_years: 4.0
-    });
+  const [semesterForm, setSemesterForm] = useState({
+    semester_code: '',
+    semester_name: '',
+    academic_year: '2026-2027',
+    start_date: '2026-09-01',
+    end_date: '2027-01-15'
+  });
 
-    const fetchAllData = useCallback(async () => {
-        try {
-            const [semRes, periodRes, progRes, deptRes] = await Promise.all([
-                axiosClient.get('/admin/semesters'),
-                axiosClient.get('/admin/registration-periods'),
-                axiosClient.get('/admin/programs'),
-                axiosClient.get('/admin/departments')
-            ]);
-            if (semRes.success) setSemesters(semRes.data);
-            if (periodRes.success) setPeriods(periodRes.data);
-            if (progRes.success) setPrograms(progRes.data);
-            if (deptRes.success) setDepartments(deptRes.data);
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi lấy dữ liệu cấu hình đào tạo: Vui lòng dùng nút làm mới để thử lại.', 'danger');
-        }
-    }, [notify]);
+  const [programForm, setProgramForm] = useState({
+    program_code: '',
+    program_name: '',
+    department_id: '1',
+    total_credits: 135,
+    duration_years: 4.0
+  });
 
-    useEffect(() => {
-        Promise.resolve().then(fetchAllData);
-    }, [fetchAllData]);
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [semRes, periodRes, progRes, deptRes] = await Promise.all([
+        axiosClient.get('/admin/semesters'),
+        axiosClient.get('/admin/registration-periods'),
+        axiosClient.get('/admin/programs'),
+        axiosClient.get('/admin/departments')
+      ]);
+      if (semRes.success) setSemesters(semRes.data || []);
+      if (periodRes.success) setPeriods(periodRes.data || []);
+      if (progRes.success) setPrograms(progRes.data || []);
+      if (deptRes.success) setDepartments(deptRes.data || []);
+    } catch {
+      notify('Không thể tải dữ liệu đào tạo. Vui lòng thử lại.', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
 
+  useEffect(() => {
+    Promise.resolve().then(fetchAllData);
+  }, [fetchAllData]);
 
+  const handleTogglePeriod = async (id) => {
+    try {
+      const res = await axiosClient.put(`/admin/registration-periods/${id}/toggle`);
+      if (res.success) {
+        notify('Đã cập nhật trạng thái đợt đăng ký.', 'success');
+        refresh();
+        fetchAllData();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể đổi trạng thái đợt đăng ký.', 'danger');
+    }
+  };
 
-    const handleTogglePeriod = async (id) => {
-        try {
-            const res = await axiosClient.put(`/admin/registration-periods/${id}/toggle`);
-            if (res.success) {
-                refresh();
-                fetchAllData();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi thay đổi trạng thái đợt đăng ký.', 'danger');
-        }
-    };
+  const handleSetActiveSemester = async (id) => {
+    try {
+      const res = await axiosClient.put(`/admin/semesters/${id}/active`);
+      if (res.success) {
+        notify('Đã kích hoạt học kỳ hiện hành thành công!', 'success');
+        refresh();
+        fetchAllData();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể kích hoạt học kỳ.', 'danger');
+    }
+  };
 
-    const handleSetActiveSemester = async (id) => {
-        try {
-            const res = await axiosClient.put(`/admin/semesters/${id}/active`);
-            if (res.success) {
-                refresh();
-                notify('Đã kích hoạt học kỳ hiện hành thành công.', 'success');
-                fetchAllData();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi kích hoạt học kỳ.', 'danger');
-        }
-    };
+  const handleCreatePeriod = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await axiosClient.post('/admin/registration-periods', periodForm);
+      if (res.success) {
+        notify('Tạo đợt đăng ký tín chỉ mới thành công!', 'success');
+        setShowPeriodModal(false);
+        refresh();
+        fetchAllData();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Lỗi khi tạo đợt đăng ký.', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    const handleCreatePeriod = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await axiosClient.post('/admin/registration-periods', periodForm);
-            if (res.success) {
-                refresh();
-                notify('Tạo đợt đăng ký học phần thành công!', 'success');
-                setShowPeriodModal(false);
-                fetchAllData();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi tạo đợt đăng ký.', 'danger');
-        }
-    };
+  const handleCreateSemester = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await axiosClient.post('/admin/semesters', semesterForm);
+      if (res.success) {
+        notify('Thêm học kỳ mới thành công!', 'success');
+        setShowSemesterModal(false);
+        refresh();
+        fetchAllData();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Lỗi khi tạo học kỳ.', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    const handleCreateSemester = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await axiosClient.post('/admin/semesters', semesterForm);
-            if (res.success) {
-                refresh();
-                notify('Tạo học kỳ mới thành công!', 'success');
-                setShowSemesterModal(false);
-                fetchAllData();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi tạo học kỳ.', 'danger');
-        }
-    };
+  const handleCreateProgram = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await axiosClient.post('/admin/programs', programForm);
+      if (res.success) {
+        notify('Thêm chương trình đào tạo mới thành công!', 'success');
+        setShowProgramModal(false);
+        refresh();
+        fetchAllData();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Lỗi khi tạo chương trình.', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    const handleCreateProgram = async (e) => {
-        e.preventDefault();
-        try {
-            const res = await axiosClient.post('/admin/programs', programForm);
-            if (res.success) {
-                refresh();
-                notify('Tạo chương trình đào tạo thành công!', 'success');
-                setShowProgramModal(false);
-                fetchAllData();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi tạo chương trình.', 'danger');
-        }
-    };
-
-    const saved = async () => { await fetchAllData(); await refresh(); };
-    const remove = async (resource, row, label) => {
-        if (pending || !await confirm(`Xóa ${label}? Dữ liệu đang sử dụng sẽ được giữ lại.`)) return;
-        setPending(true);
-        try { const res = await axiosClient.delete(`/admin/${resource}/${row.id}`); notify(res.message, 'success'); await saved(); }
-        catch (err) { notify(err.response?.data?.message || 'Không thể xóa dữ liệu.', 'danger'); }
-        finally { setPending(false); }
-    };
-    const openCurriculum = async program => {
-        setPending(true);
-        try {
-            const [list, catalog] = await Promise.all([axiosClient.get(`/admin/programs/${program.id}/curriculum`), axiosClient.get('/admin/subjects')]);
-            setCurriculum({ program, initial: list.data, subjects: catalog.data });
-        } catch (err) { notify(err.response?.data?.message || 'Không tải được môn học chương trình.', 'danger'); }
-        finally { setPending(false); }
-    };
-    return (
-        <div className="admin-pane">
-            <RecordWorkspace heading={<>
-                    <div>
-                        <h1 className="fw-bold mb-1">
-                            Học kỳ & đăng ký
-                        </h1>
-                        <p className="text-muted small mb-0">
-                            Cấu hình học kỳ hiện hành, đóng/mở đợt đăng ký tín chỉ và chương trình đào tạo
-                        </p>
-                    </div>
-                </>} filters={<ul className="nav nav-pills mb-4 border-bottom pb-3">
-                    <li className="nav-item me-2">
-                        <button
-                            className={`nav-link ${activeTab === 'periods' ? 'active' : 'bg-light text-dark'}`}
-                            onClick={() => setActiveTab('periods')}
-                        >
-                            <i aria-hidden="true" className="bi bi-toggle-on me-2"></i>Đợt Đăng Ký Học Phần
-                        </button>
-                    </li>
-                    <li className="nav-item me-2">
-                        <button
-                            className={`nav-link ${activeTab === 'semesters' ? 'active' : 'bg-light text-dark'}`}
-                            onClick={() => setActiveTab('semesters')}
-                        >
-                            <i aria-hidden="true" className="bi bi-calendar3 me-2"></i>Năm Học & Học Kỳ
-                        </button>
-                    </li>
-                    <li className="nav-item">
-                        <button
-                            className={`nav-link ${activeTab === 'programs' ? 'active' : 'bg-light text-dark'}`}
-                            onClick={() => setActiveTab('programs')}
-                        >
-                            <i aria-hidden="true" className="bi bi-diagram-3 me-2"></i>Chương trình đào tạo
-                        </button>
-                    </li>
-                </ul>} filterTitle="Kế hoạch đào tạo" sheetTitle={activeTab === 'periods' ? 'Đợt đăng ký học phần' : activeTab === 'semesters' ? 'Sổ học kỳ' : 'Chương trình đào tạo'}>
-
-                
-                {activeTab === 'periods' && (
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <span className="badge bg-light text-dark border px-3 py-2">
-                                Tổng cộng: <b>{periods.length}</b> đợt đăng ký
-                            </span>
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowPeriodModal(true)}>
-                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Đợt ĐKHP Mới
-                            </button>
-                        </div>
-                        <div className="alert alert-info py-2 px-3 small mb-3">
-                            <i className="bi bi-info-circle me-2"></i>
-                            Cổng đăng ký sẽ <strong>tự động mở khi đến giờ bắt đầu</strong> và <strong>tự động đóng khi hết hạn</strong> (khi công tắc đợt được bật).
-                        </div>
-                        <div className="table-container-responsive">
-                            <table className="table-modern text-center align-middle">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">STT</th>
-                                        <th scope="col" className="text-start">Tên Đợt Đăng Ký</th>
-                                        <th scope="col">Học Kỳ Áp Dụng</th>
-                                        <th scope="col">Thời Gian Bắt Đầu - Kết Thúc</th>
-                                        <th scope="col">Hạn Mức Tín Chỉ</th>
-                                        <th scope="col">Trạng Thái Cổng</th>
-                                        <th scope="col">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {periods.map((rp, idx) => {
-                                        const status = getPeriodStatus(rp);
-                                        return (
-                                            <tr key={rp.id}>
-                                                <td className="fw-semibold text-muted">{idx + 1}</td>
-                                                <td className="text-start fw-bold text-dark">{rp.name}</td>
-                                                <td>
-                                                    <span className="badge bg-primary-subtle text-primary px-2 py-1">
-                                                        {rp.semester_name || 'Học kỳ hiện tại'}
-                                                    </span>
-                                                </td>
-                                                <td className="small text-muted">
-                                                    <div><i aria-hidden="true" className="bi bi-clock me-1 text-success"></i>{rp.start_time}</div>
-                                                    <div><i aria-hidden="true" className="bi bi-clock-history me-1 text-danger"></i>{rp.end_time}</div>
-                                                </td>
-                                                <td>
-                                                    <span className="badge bg-secondary-subtle text-secondary px-2 py-1">
-                                                        Min: {rp.min_credits} | Max: {rp.max_credits} TC
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className={`badge ${status.badgeClass} px-2 py-1`}>
-                                                        {status.label}
-                                                    </span>
-                                                    <small className="d-block text-secondary mt-1">
-                                                        {status.detail}
-                                                    </small>
-                                                </td>
-                                                <td><RecordActions label={rp.name}>
-                                                    <button disabled={pending} onClick={() => setEditing({ resource: 'registration-periods', record: rp })}>Sửa đợt đăng ký</button>
-                                                    <button disabled={pending} onClick={() => remove('registration-periods', rp, rp.name)}>Xóa đợt đăng ký</button>
-                                                    <button
-                                                        className={`btn btn-sm ${rp.is_active === 1 ? 'btn-outline-danger' : 'btn-outline-success'}`}
-                                                        onClick={() => handleTogglePeriod(rp.id)}
-                                                    >
-                                                        <i aria-hidden="true" className={`bi ${rp.is_active === 1 ? 'bi-toggle-on' : 'bi-toggle-off'} me-1`}></i>
-                                                        {rp.is_active === 1 ? 'Tắt đợt' : 'Bật đợt'}
-                                                    </button></RecordActions>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                
-                {activeTab === 'semesters' && (
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <span className="badge bg-light text-dark border px-3 py-2">
-                                Danh mục các kỳ học trong trường
-                            </span>
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowSemesterModal(true)}>
-                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Học Kỳ Mới
-                            </button>
-                        </div>
-                        <div className="table-container-responsive">
-                            <table className="table-modern text-center align-middle">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">STT</th>
-                                        <th scope="col">Mã Học Kỳ</th>
-                                        <th scope="col" className="text-start">Tên Học Kỳ</th>
-                                        <th scope="col">Năm Học</th>
-                                        <th scope="col">Thời Gian Bắt Đầu - Kết Thúc</th>
-                                        <th scope="col">Trạng thái</th>
-                                        <th scope="col">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {semesters.map((s, idx) => (
-                                        <tr key={s.id}>
-                                            <td className="fw-semibold text-muted">{idx + 1}</td>
-                                            <td><code>{s.semester_code}</code></td>
-                                            <td className="text-start fw-bold">{s.semester_name}</td>
-                                            <td><span className="badge bg-light text-dark border">{s.academic_year}</span></td>
-                                            <td className="small text-muted">
-                                                {s.start_date ? s.start_date.slice(0, 10) : '---'} đến {s.end_date ? s.end_date.slice(0, 10) : '---'}
-                                            </td>
-                                            <td>
-                                                <span className={`badge ${s.is_active === 1 ? 'bg-success' : 'bg-light text-muted border'}`}>
-                                                    {s.is_active === 1 ? 'Học kỳ hiện tại' : 'Không kích hoạt'}
-                                                </span>
-                                            </td>
-                                            <td><RecordActions label={s.semester_name}><button onClick={() => setPlanSemester(s)}>Tình trạng chốt đăng ký</button>
-                                                <button disabled={pending} onClick={() => setEditing({ resource: 'semesters', record: s })}>Sửa học kỳ & năm học</button>
-                                                <button disabled={pending} onClick={() => remove('semesters', s, s.semester_name)}>Xóa học kỳ</button>
-                                                {s.is_active !== 1 && (
-                                                    <button
-                                                        className="btn btn-outline-primary btn-sm"
-                                                        onClick={() => handleSetActiveSemester(s.id)}
-                                                    >
-                                                        <i aria-hidden="true" className="bi bi-check2-circle me-1"></i> Đặt Làm Hiện Hành
-                                                    </button>
-                                                )}</RecordActions>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                
-                {activeTab === 'programs' && (
-                    <div>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <span className="badge bg-light text-dark border px-3 py-2">
-                                Các chuyên ngành đào tạo chính quy
-                            </span>
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowProgramModal(true)}>
-                                <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Tạo Chương Trình Mới
-                            </button>
-                        </div>
-                        <div className="table-container-responsive">
-                            <table className="table-modern text-center align-middle">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">STT</th>
-                                        <th scope="col">Mã Ngành</th>
-                                        <th scope="col" className="text-start">Tên Ngành / Chương Trình</th>
-                                        <th scope="col">Khoa Trực Thuộc</th>
-                                        <th scope="col">Tổng Tín Chỉ</th>
-                                        <th scope="col">Thời Gian Đào Tạo</th>
-                                        <th scope="col">Số Sinh Viên</th><th scope="col">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {programs.map((p, idx) => (
-                                        <tr key={p.id}>
-                                            <td className="fw-semibold text-muted">{idx + 1}</td>
-                                            <td><span className="badge bg-secondary-subtle text-secondary">{p.program_code}</span></td>
-                                            <td className="text-start fw-bold text-dark">{p.program_name}</td>
-                                            <td>{p.department_name || 'Khoa CNTT'}</td>
-                                            <td><span className="badge bg-primary-subtle text-primary fs-6">{p.total_credits || 135} TC</span></td>
-                                            <td>{p.duration_years || 4.0} năm</td>
-                                            <td><span className="badge bg-info text-dark">{p.total_students || 0} SV</span></td>
-                                            <td><RecordActions label={p.program_name}>
-                                                <button disabled={pending} onClick={() => setEditing({ resource: 'programs', record: p })}>Sửa chương trình</button>
-                                                <button disabled={pending} onClick={() => openCurriculum(p)}>Môn học & học kỳ</button>
-                                                <button disabled={pending} onClick={() => remove('programs', p, p.program_name)}>Xóa chương trình</button>
-                                            </RecordActions></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </RecordWorkspace>
-
-            {planSemester && <RegistrationPlans semester={planSemester} onClose={() => setPlanSemester(null)} />}
-            {editing && <TrainingEditor {...editing} departments={departments} onClose={() => setEditing(null)} onSaved={saved} />}
-            {curriculum && <CurriculumEditor {...curriculum} onClose={() => setCurriculum(null)} onSaved={saved} />}
-            
-            {showPeriodModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowPeriodModal(false)}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-bold">
-                                    <i aria-hidden="true" className="bi bi-plus-circle text-primary me-2"></i>Tạo Đợt Đăng Ký Học Phần Mới
-                                </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowPeriodModal(false)}></button>
-                            </div>
-                            <form onSubmit={handleCreatePeriod}>
-                                <div className="modal-body p-4">
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-1">Tên Đợt Đăng Ký *</label>
-                                        <input id="ManageSemesters-field-1"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: Đợt 1: Đăng ký chính thức HK1"
-                                            required
-                                            value={periodForm.name}
-                                            onChange={(e) => setPeriodForm({ ...periodForm, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-2">Học Kỳ Áp Dụng *</label>
-                                        <select id="ManageSemesters-field-2"
-                                            className="form-select"
-                                            value={periodForm.semester_id}
-                                            onChange={(e) => setPeriodForm({ ...periodForm, semester_id: e.target.value })}
-                                        >
-                                            {semesters.map(s => (
-                                                <option key={s.id} value={s.id}>{s.semester_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="row g-2 mb-3">
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-3">Bắt Đầu *</label>
-                                            <input id="ManageSemesters-field-3"
-                                                type="text"
-                                                className="form-control"
-                                                value={periodForm.start_time}
-                                                onChange={(e) => setPeriodForm({ ...periodForm, start_time: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-4">Kết Thúc *</label>
-                                            <input id="ManageSemesters-field-4"
-                                                type="text"
-                                                className="form-control"
-                                                value={periodForm.end_time}
-                                                onChange={(e) => setPeriodForm({ ...periodForm, end_time: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="row g-2">
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-5">Số Tín Chỉ Tối Thiểu</label>
-                                            <input id="ManageSemesters-field-5"
-                                                type="number"
-                                                className="form-control"
-                                                value={periodForm.min_credits}
-                                                onChange={(e) => setPeriodForm({ ...periodForm, min_credits: Number(e.target.value) })}
-                                            />
-                                        </div>
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-6">Số Tín Chỉ Tối Đa</label>
-                                            <input id="ManageSemesters-field-6"
-                                                type="number"
-                                                className="form-control"
-                                                value={periodForm.max_credits}
-                                                onChange={(e) => setPeriodForm({ ...periodForm, max_credits: Number(e.target.value) })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowPeriodModal(false)}>Hủy</button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-4">Tạo Đợt Đăng Ký</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
-
-            
-            {showSemesterModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowSemesterModal(false)}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-bold">
-                                    <i aria-hidden="true" className="bi bi-calendar-plus text-primary me-2"></i>Tạo Học Kỳ Mới
-                                </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowSemesterModal(false)}></button>
-                            </div>
-                            <form onSubmit={handleCreateSemester}>
-                                <div className="modal-body p-4">
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-7">Mã Học Kỳ *</label>
-                                        <input id="ManageSemesters-field-7"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: HK2_2026_2027"
-                                            required
-                                            value={semesterForm.semester_code}
-                                            onChange={(e) => setSemesterForm({ ...semesterForm, semester_code: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-8">Tên Học Kỳ *</label>
-                                        <input id="ManageSemesters-field-8"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: Học kỳ 2 - 2026-2027"
-                                            required
-                                            value={semesterForm.semester_name}
-                                            onChange={(e) => setSemesterForm({ ...semesterForm, semester_name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-9">Năm Học *</label>
-                                        <input id="ManageSemesters-field-9"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="2026-2027"
-                                            required
-                                            value={semesterForm.academic_year}
-                                            onChange={(e) => setSemesterForm({ ...semesterForm, academic_year: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="row g-2">
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-10">Ngày Bắt Đầu</label>
-                                            <input id="ManageSemesters-field-10"
-                                                type="date"
-                                                className="form-control"
-                                                value={semesterForm.start_date}
-                                                onChange={(e) => setSemesterForm({ ...semesterForm, start_date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-11">Ngày Kết Thúc</label>
-                                            <input id="ManageSemesters-field-11"
-                                                type="date"
-                                                className="form-control"
-                                                value={semesterForm.end_date}
-                                                onChange={(e) => setSemesterForm({ ...semesterForm, end_date: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowSemesterModal(false)}>Hủy</button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-4">Tạo Học Kỳ</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
-
-            
-            {showProgramModal && (
-                <AccessibleDialog className="record-editor" onClose={() => setShowProgramModal(false)}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-bold">
-                                    <i aria-hidden="true" className="bi bi-diagram-3 text-primary me-2"></i>Thêm Chương trình đào tạo
-                                </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowProgramModal(false)}></button>
-                            </div>
-                            <form onSubmit={handleCreateProgram}>
-                                <div className="modal-body p-4">
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-12">Mã Ngành Đào Tạo *</label>
-                                        <input id="ManageSemesters-field-12"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: 7480201"
-                                            required
-                                            value={programForm.program_code}
-                                            onChange={(e) => setProgramForm({ ...programForm, program_code: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-13">Tên Ngành / Chương Trình *</label>
-                                        <input id="ManageSemesters-field-13"
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="VD: Công nghệ Thông tin"
-                                            required
-                                            value={programForm.program_name}
-                                            onChange={(e) => setProgramForm({ ...programForm, program_name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-14">Khoa Phụ Trách</label>
-                                        <select id="ManageSemesters-field-14"
-                                            className="form-select"
-                                            value={programForm.department_id}
-                                            onChange={(e) => setProgramForm({ ...programForm, department_id: e.target.value })}
-                                        >
-                                            {departments.map(d => (
-                                                <option key={d.id} value={d.id}>{d.department_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="row g-2">
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-15">Tổng Số Tín Chỉ</label>
-                                            <input id="ManageSemesters-field-15"
-                                                type="number"
-                                                className="form-control"
-                                                value={programForm.total_credits}
-                                                onChange={(e) => setProgramForm({ ...programForm, total_credits: Number(e.target.value) })}
-                                            />
-                                        </div>
-                                        <div className="col-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageSemesters-field-16">Thời Gian Đào Tạo (Năm)</label>
-                                            <input id="ManageSemesters-field-16"
-                                                type="number"
-                                                step="0.5"
-                                                className="form-control"
-                                                value={programForm.duration_years}
-                                                onChange={(e) => setProgramForm({ ...programForm, duration_years: parseFloat(e.target.value) })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowProgramModal(false)}>Hủy</button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-4">Tạo Chương Trình</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', maxWidth: '1600px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-4)' }}>
+        <div>
+          <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Học kỳ & Đợt đăng ký
+          </h1>
         </div>
-    );
-};
 
-export default ManageSemesters;
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Button variant="outline" size="md" onClick={fetchAllData}>
+            Làm mới
+          </Button>
+
+          {activeTab === 'periods' && (
+            <Button variant="primary" size="md" onClick={() => setShowPeriodModal(true)}>
+              + Tạo đợt đăng ký mới
+            </Button>
+          )}
+
+          {activeTab === 'semesters' && (
+            <Button variant="primary" size="md" onClick={() => setShowSemesterModal(true)}>
+              + Thêm học kỳ mới
+            </Button>
+          )}
+
+          {activeTab === 'programs' && (
+            <Button variant="primary" size="md" onClick={() => setShowProgramModal(true)}>
+              + Thêm chương trình mới
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
+        <Tabs
+          tabs={[
+            { key: 'periods', label: `Đợt đăng ký tín chỉ (${periods.length})` },
+            { key: 'semesters', label: `Danh mục học kỳ (${semesters.length})` },
+            { key: 'programs', label: `Chương trình đào tạo (${programs.length})` }
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
+        <DensityToggle />
+      </div>
+
+      {loading ? (
+        <Skeleton.Table rows={6} cols={5} />
+      ) : activeTab === 'periods' ? (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {periods.length === 0 ? (
+            <EmptyState
+              title="Chưa có đợt đăng ký nào"
+              description="Hãy thiết lập đợt mở đăng ký tín chỉ để sinh viên bắt đầu chọn học phần."
+              action={
+                <Button variant="primary" size="sm" onClick={() => setShowPeriodModal(true)}>
+                  + Tạo đợt đăng ký mới
+                </Button>
+              }
+            />
+          ) : (
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th width="28%">Tên đợt đăng ký</Table.Th>
+                  <Table.Th width="18%">Học kỳ</Table.Th>
+                  <Table.Th width="24%">Thời gian mở / đóng cổng</Table.Th>
+                  <Table.Th width="14%">Ngưỡng tín chỉ</Table.Th>
+                  <Table.Th width="16%" align="right">Trạng thái & Thao tác</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {periods.map(rp => {
+                  const status = getPeriodStatus(rp);
+                  return (
+                    <Table.Tr key={rp.id}>
+                      <Table.Td>
+                        <strong style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                          {rp.name}
+                        </strong>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge variant="neutral">
+                          {rp.semester_name || semesters.find(s => s.id === rp.semester_id)?.semester_name || 'Học kỳ'}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <div style={{ display: 'flex', flexDirection: 'column', fontSize: 'var(--font-size-xs)' }}>
+                          <span className="tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+                            Từ: {rp.start_time}
+                          </span>
+                          <span className="tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
+                            Đến: {rp.end_time}
+                          </span>
+                        </div>
+                      </Table.Td>
+                      <Table.Td>
+                        <span className="tabular-nums" style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                          Tối thiểu: {rp.min_credits} TC · Tối đa: {rp.max_credits} TC
+                        </span>
+                      </Table.Td>
+                      <Table.Td align="right">
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                          <Button
+                            variant={Number(rp.is_active) === 1 ? 'outline' : 'primary'}
+                            size="sm"
+                            onClick={() => handleTogglePeriod(rp.id)}
+                          >
+                            {Number(rp.is_active) === 1 ? 'Tắt' : 'Bật'}
+                          </Button>
+                        </div>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          )}
+        </div>
+      ) : activeTab === 'semesters' ? (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th width="25%">Mã học kỳ</Table.Th>
+                <Table.Th width="30%">Tên học kỳ</Table.Th>
+                <Table.Th width="15%">Năm học</Table.Th>
+                <Table.Th width="15%">Trạng thái</Table.Th>
+                <Table.Th width="15%" align="right">Thao tác</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {semesters.map(sem => (
+                <Table.Tr key={sem.id}>
+                  <Table.Td>
+                    <span className="tabular-nums" style={{ fontWeight: '600', color: 'var(--color-accent-text)' }}>
+                      {sem.semester_code}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <strong style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                      {sem.semester_name}
+                    </strong>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge variant="neutral">{sem.academic_year}</Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    {sem.is_active ? (
+                      <Badge variant="success">Học kỳ hiện hành</Badge>
+                    ) : (
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                        Đã đóng
+                      </span>
+                    )}
+                  </Table.Td>
+                  <Table.Td align="right">
+                    <div style={{ display: 'inline-flex', gap: '4px' }}>
+                      {!sem.is_active && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSetActiveSemester(sem.id)}
+                        >
+                          Kích hoạt
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPlanSemester(sem)}
+                      >
+                        Kế hoạch SV
+                      </Button>
+                    </div>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </div>
+      ) : (
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th width="20%">Mã ngành</Table.Th>
+                <Table.Th width="35%">Tên chương trình đào tạo</Table.Th>
+                <Table.Th width="15%">Tổng tín chỉ</Table.Th>
+                <Table.Th width="15%">Thời gian</Table.Th>
+                <Table.Th width="15%" align="right">Thao tác</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {programs.map(prog => (
+                <Table.Tr key={prog.id}>
+                  <Table.Td>
+                    <span className="tabular-nums" style={{ fontWeight: '600', color: 'var(--color-accent-text)' }}>
+                      {prog.program_code}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)' }}>
+                        {prog.program_name}
+                      </strong>
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        Khoa: {prog.department_name || departments.find(d => d.id === prog.department_id)?.department_name || 'Khoa CNTT'}
+                      </span>
+                    </div>
+                  </Table.Td>
+                  <Table.Td>
+                    <span className="tabular-nums" style={{ fontWeight: '600' }}>
+                      {prog.total_credits} TC
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge variant="neutral">{prog.duration_years || 4.0} năm</Badge>
+                  </Table.Td>
+                  <Table.Td align="right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurriculumProgram(prog)}
+                    >
+                      Khung CTĐT
+                    </Button>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </div>
+      )}
+
+      {curriculumProgram && (
+        <Modal
+          open={Boolean(curriculumProgram)}
+          onClose={() => setCurriculumProgram(null)}
+          title={`Khung chương trình đào tạo · ${curriculumProgram.program_name}`}
+          description={`Mã chương trình: ${curriculumProgram.program_code} · Tổng số ${curriculumProgram.total_credits} tín chỉ`}
+          size="xl"
+        >
+          <CurriculumEditor program={curriculumProgram} onClose={() => setCurriculumProgram(null)} />
+        </Modal>
+      )}
+
+      {planSemester && (
+        <Modal
+          open={Boolean(planSemester)}
+          onClose={() => setPlanSemester(null)}
+          title={`Kế hoạch đăng ký sinh viên · ${planSemester.semester_name}`}
+          size="xl"
+        >
+          <RegistrationPlans semester={planSemester} onClose={() => setPlanSemester(null)} />
+        </Modal>
+      )}
+
+      <Modal
+        open={showPeriodModal}
+        onClose={() => setShowPeriodModal(false)}
+        title="Tạo đợt đăng ký tín chỉ mới"
+        size="md"
+      >
+        <form onSubmit={handleCreatePeriod} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Tên đợt đăng ký *
+            </label>
+            <Input
+              value={periodForm.name}
+              onChange={e => setPeriodForm({ ...periodForm, name: e.target.value })}
+              placeholder="VD: Đợt 1: Đăng ký học phần chính thức HK1"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Học kỳ áp dụng *
+            </label>
+            <Select
+              value={periodForm.semester_id}
+              onChange={e => setPeriodForm({ ...periodForm, semester_id: e.target.value })}
+              options={semesters.map(s => ({ value: String(s.id), label: s.semester_name }))}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Thời gian mở cổng *
+              </label>
+              <Input
+                value={periodForm.start_time}
+                onChange={e => setPeriodForm({ ...periodForm, start_time: e.target.value })}
+                placeholder="YYYY-MM-DD HH:MM:SS"
+                required
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Thời gian đóng cổng *
+              </label>
+              <Input
+                value={periodForm.end_time}
+                onChange={e => setPeriodForm({ ...periodForm, end_time: e.target.value })}
+                placeholder="YYYY-MM-DD HH:MM:SS"
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Tín chỉ tối thiểu *
+              </label>
+              <Input
+                type="number"
+                min="0"
+                max="50"
+                value={periodForm.min_credits}
+                onChange={e => setPeriodForm({ ...periodForm, min_credits: Number(e.target.value) })}
+                required
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Tín chỉ tối đa *
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="50"
+                value={periodForm.max_credits}
+                onChange={e => setPeriodForm({ ...periodForm, max_credits: Number(e.target.value) })}
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowPeriodModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={submitting}>
+              Tạo đợt đăng ký
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showSemesterModal}
+        onClose={() => setShowSemesterModal(false)}
+        title="Thêm học kỳ mới"
+        size="md"
+      >
+        <form onSubmit={handleCreateSemester} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Mã học kỳ *
+            </label>
+            <Input
+              value={semesterForm.semester_code}
+              onChange={e => setSemesterForm({ ...semesterForm, semester_code: e.target.value })}
+              placeholder="VD: HK2_2026_2027"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Tên học kỳ *
+            </label>
+            <Input
+              value={semesterForm.semester_name}
+              onChange={e => setSemesterForm({ ...semesterForm, semester_name: e.target.value })}
+              placeholder="VD: Học kỳ 2 - 2026-2027"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Năm học *
+            </label>
+            <Input
+              value={semesterForm.academic_year}
+              onChange={e => setSemesterForm({ ...semesterForm, academic_year: e.target.value })}
+              placeholder="VD: 2026-2027"
+              required
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Ngày bắt đầu
+              </label>
+              <Input
+                type="date"
+                value={semesterForm.start_date}
+                onChange={e => setSemesterForm({ ...semesterForm, start_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Ngày kết thúc
+              </label>
+              <Input
+                type="date"
+                value={semesterForm.end_date}
+                onChange={e => setSemesterForm({ ...semesterForm, end_date: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowSemesterModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={submitting}>
+              Tạo học kỳ
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showProgramModal}
+        onClose={() => setShowProgramModal(false)}
+        title="Thêm chương trình đào tạo"
+        size="md"
+      >
+        <form onSubmit={handleCreateProgram} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Mã chương trình *
+            </label>
+            <Input
+              value={programForm.program_code}
+              onChange={e => setProgramForm({ ...programForm, program_code: e.target.value })}
+              placeholder="VD: 7480201"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Tên chương trình đào tạo *
+            </label>
+            <Input
+              value={programForm.program_name}
+              onChange={e => setProgramForm({ ...programForm, program_name: e.target.value })}
+              placeholder="VD: Công nghệ Thông tin"
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Khoa quản lý *
+            </label>
+            <Select
+              value={programForm.department_id}
+              onChange={e => setProgramForm({ ...programForm, department_id: e.target.value })}
+              options={departments.map(d => ({ value: String(d.id), label: d.department_name }))}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Tổng số tín chỉ khung
+              </label>
+              <Input
+                type="number"
+                min="60"
+                max="250"
+                value={programForm.total_credits}
+                onChange={e => setProgramForm({ ...programForm, total_credits: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Thời gian đào tạo (năm)
+              </label>
+              <Input
+                type="number"
+                step="0.5"
+                min="2"
+                max="7"
+                value={programForm.duration_years}
+                onChange={e => setProgramForm({ ...programForm, duration_years: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowProgramModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={submitting}>
+              Tạo chương trình
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

@@ -12,7 +12,33 @@ async function visibleStudentIds(req, store) {
 const getStudents = endpoint(async (req, store) => {
     const visible = await visibleStudentIds(req, store);
     const students = visible ? await store.related('students', 'id', [...visible]) : await store.list('students');
-    return { data: students.map(s => ({ id: s.id, student_code: s.student_code, full_name: s.full_name, class_name: s.class_name })) };
+    const result = [];
+    for (const s of students) {
+        const report = await transcript(store, s.id, req.query.semester_id ? integer(req.query.semester_id, 'Học kỳ') : null);
+        const gpa4 = Number(report.cumulative?.gpa4 || 0);
+        const hasResitAvailable = report.data.some(d => d.next_action === 'RESIT_AVAILABLE' || d.next_action === 'RESIT_PENDING');
+        const hasRetakeRequired = report.data.some(d => d.next_action === 'RETAKE_REQUIRED' || (d.result_status === 'FAILED' && !d.can_request_resit));
+        let academic_status = 'NORMAL';
+        if (gpa4 >= 3.6 && report.failed_subjects === 0) academic_status = 'EXCELLENT';
+        else if (hasRetakeRequired) academic_status = 'RETAKE';
+        else if (hasResitAvailable) academic_status = 'RESIT';
+        else if (gpa4 >= 3.2 && report.failed_subjects === 0) academic_status = 'VERY_GOOD';
+
+        result.push({
+            id: s.id,
+            student_code: s.student_code,
+            full_name: s.full_name,
+            class_name: s.class_name,
+            academic_year: s.academic_year || 'K74',
+            gpa4: report.cumulative?.gpa4 || '0.00',
+            gpa10: report.cumulative?.gpa10 || '0.00',
+            passed_credits: report.cumulative?.passedCredits || 0,
+            failed_subjects: report.failed_subjects,
+            academic_status,
+            can_resit_count: report.data.filter(d => d.next_action === 'RESIT_AVAILABLE' || d.next_action === 'RESIT_PENDING').length
+        });
+    }
+    return { data: result };
 });
 const getTranscript = endpoint(async (req, store) => {
     const id = integer(req.params.studentId, 'Sinh viên');

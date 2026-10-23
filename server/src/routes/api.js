@@ -31,6 +31,7 @@ router.put('/lecturer/lock-grades/:classId', verifyToken, requireRole(['LECTURER
 router.get('/lecturer/timetable', verifyToken, requireRole(['LECTURER', 'ADMIN']), lecturerController.getLecturerTimetable);
 
 router.get('/admin/stats', verifyToken, requireRole(['ADMIN']), adminController.getDashboardStats);
+router.get('/admin/audit-logs', verifyToken, requireRole(['ADMIN']), adminController.getAuditLogs);
 router.get('/admin/departments', verifyToken, requireRole(['ADMIN']), adminController.getAllDepartments);
 
 router.get('/admin/users', verifyToken, requireRole(['ADMIN']), adminController.getAllUsers);

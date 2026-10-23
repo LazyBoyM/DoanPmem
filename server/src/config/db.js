@@ -9,6 +9,12 @@ let pool = null;
 let isConnected = false;
 
 const mockDb = {
+    audit_logs: [
+        { id: 1, user_id: 1, user_name: 'admin (Ban Đào Tạo)', action: 'UPDATE', target_table: 'grades', record_id: 'INT1004.01', detail: 'Khóa sổ điểm lớp học phần INT1004.01', created_at: '2026-10-22 08:30:00' },
+        { id: 2, user_id: 2, user_name: 'ThS. Phạm Thị Thuận', action: 'UPDATE', target_table: 'grades', record_id: 'INT1001.01', detail: 'Nhập điểm chuyên cần và giữa kỳ lớp INT1001.01', created_at: '2026-10-22 09:15:00' },
+        { id: 3, user_id: 1, user_name: 'admin (Ban Đào Tạo)', action: 'CREATE', target_table: 'course_classes', record_id: 'INT1005.02', detail: 'Mở mới lớp học phần Công nghệ Web (INT1005.02)', created_at: '2026-10-22 10:00:00' },
+        { id: 4, user_id: 2, user_name: 'ThS. Phạm Thị Thuận', action: 'RESIT', target_table: 'resit_attempts', record_id: '74DCTT25001', detail: 'Xác nhận điểm thi lại môn INT1001 cho sinh viên Lê Văn Hiệp', created_at: '2026-10-22 14:20:00' }
+    ],
     program_subjects: [],
     registration_submissions: [],
     buildings: [
@@ -103,6 +109,29 @@ async function connectDatabase() {
         conn.release();
         pool = candidate;
         isConnected = true;
+        if (typeof candidate.query === 'function') {
+            await candidate.query(`
+                CREATE TABLE IF NOT EXISTS \`audit_logs\` (
+                    \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                    \`user_id\` INT NULL,
+                    \`user_name\` VARCHAR(100) NOT NULL,
+                    \`action\` VARCHAR(50) NOT NULL,
+                    \`target_table\` VARCHAR(50) NOT NULL,
+                    \`record_id\` VARCHAR(50) NOT NULL,
+                    \`detail\` TEXT NOT NULL,
+                    \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            `).catch(() => {});
+            const [rows] = await candidate.query('SELECT COUNT(*) as cnt FROM `audit_logs`').catch(() => [[{ cnt: 1 }]]);
+            if (rows && rows[0] && rows[0].cnt === 0) {
+                for (const log of mockDb.audit_logs) {
+                    await candidate.query(
+                        'INSERT INTO `audit_logs` (`id`, `user_id`, `user_name`, `action`, `target_table`, `record_id`, `detail`, `created_at`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [log.id, log.user_id, log.user_name, log.action, log.target_table, log.record_id, log.detail, log.created_at]
+                    ).catch(() => {});
+                }
+            }
+        }
         console.log('Connected to MySQL database.');
     } catch (error) {
         await candidate.end().catch(() => {});

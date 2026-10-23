@@ -83,12 +83,9 @@ const ManageUsers = () => {
         <div className="admin-pane">
             <RecordWorkspace heading={<>
                     <div>
-                        <h1 className="fw-bold mb-1">
+                        <h1 className="fw-bold mb-0">
                             Tài khoản & phân quyền
                         </h1>
-                        <p className="text-muted small mb-0">
-                            Quản trị tài khoản Admin, Giảng viên và Sinh viên theo vai trò được cấp khi tạo hồ sơ
-                        </p>
                     </div>
                     <div className="d-flex gap-2 flex-wrap"><button className="btn btn-outline-primary btn-sm" onClick={() => setCreatingAdmin(true)}>Tạo quản trị viên</button>
                         <Link className="btn btn-primary btn-sm" to="/admin/students">Tạo hồ sơ & tài khoản sinh viên</Link>

@@ -46,7 +46,7 @@ export default function MainLayout() {
             <main className="app-main" inert={menuOpen}>
                 <Topbar menuOpen={menuOpen} onMenuToggle={() => setMenuOpen(previous => !previous)} />
                 <div id="main-content" className="app-content-body" tabIndex={-1}><Outlet /></div>
-                <footer className="app-footer"><span>EduPortal · Hệ thống quản lý đào tạo</span><span>Học tập. Kết nối. Phát triển.</span></footer>
+                <footer className="app-footer"><span>EduPortal</span></footer>
             </main>
         </div>
     </AcademicProvider>;

@@ -152,12 +152,9 @@ const ManageLecturers = () => {
         <div className="admin-pane">
             <RecordWorkspace heading={<>
                     <div>
-                        <h1 className="fw-bold mb-1">
+                        <h1 className="fw-bold mb-0">
                             Giảng viên
                         </h1>
-                        <p className="text-muted small mb-0">
-                            Danh sách cán bộ giảng viên, phân công bộ môn, học vị và cấp quyền giảng dạy
-                        </p>
                     </div>
                     <button className="btn btn-primary btn-sm" onClick={handleOpenAdd}>
                         <i aria-hidden="true" className="bi bi-person-plus me-1"></i> Thêm giảng viên

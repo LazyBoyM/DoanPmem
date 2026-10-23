@@ -533,7 +533,16 @@ const batchEnrollClass = endpoint(async (req, store) => {
         }
     };
 }, true);
-module.exports = { getDashboardStats, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
+const getAuditLogs = endpoint(async (_req, store) => {
+    try {
+        const logs = await store.list('audit_logs');
+        return { data: logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) };
+    } catch {
+        const db = require('../config/db');
+        return { data: (db.mockDb.audit_logs || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) };
+    }
+});
+module.exports = { getDashboardStats, getAuditLogs, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
     getAllLecturers, createLecturer: createProfile(false), updateLecturer: updateProfile(false), deleteLecturer: deleteProfile(false), getAllSubjects, createSubject, updateSubject, deleteSubject,
     getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassSchedule, updateClassStatus, getClassEnrolledStudents, getAllDepartments,
     getAdministrativeClasses, batchEnrollClass };

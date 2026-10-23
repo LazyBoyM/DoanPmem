@@ -27,6 +27,7 @@ function databaseConfig(env = process.env) {
         database: address ? decodeURIComponent(address.pathname.slice(1)) : env.DB_NAME || 'training_management',
         waitForConnections: true, connectionLimit, queueLimit: 100,
         connectTimeout: 10000, dateStrings: true, timezone: '+07:00',
+        enableKeepAlive: true, keepAliveInitialDelay: 10000,
         ...(ssl ? { ssl } : {})
     };
 }

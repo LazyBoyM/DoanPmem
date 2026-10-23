@@ -1,994 +1,923 @@
-import TrainingEditor from '../../components/TrainingEditor';
-import RecordActions from '../../components/RecordActions';
-import RecordWorkspace from '../../components/RecordWorkspace';
-import AccessibleDialog from '../../components/AccessibleDialog';
-import { useFeedback } from '../../context/feedback-context';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
-import ClassSchedule from '../../components/ClassSchedule';
-import ClassScheduleEditor from '../../components/ClassScheduleEditor';
+import { downloadFile } from '../../api/download';
+import { useFeedback } from '../../context/feedback-context';
+import { Button, Input, Select, Badge, Table, Modal, Tabs, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
 
-const ManageClasses = () => {
-    const { notify, confirm } = useFeedback();
-    const [classes, setClasses] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [lecturers, setLecturers] = useState([]);
-    const [semesters, setSemesters] = useState([]);
-    const [rooms, setRooms] = useState([]);
-    const [scheduleClass, setScheduleClass] = useState(null);
-    const [editingClass, setEditingClass] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterSemester, setFilterSemester] = useState('');
-    const [filterSubject, setFilterSubject] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterLecturer, setFilterLecturer] = useState('');
+export default function ManageClasses() {
+  const { notify, confirm } = useFeedback();
 
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [showStudentsModal, setShowStudentsModal] = useState(false);
-    const [selectedClass, setSelectedClass] = useState(null);
-    const [enrolledStudents, setEnrolledStudents] = useState([]);
-    const [loadingStudents, setLoadingStudents] = useState(false);
-    const [showBatchModal, setShowBatchModal] = useState(false);
-    const [batchTargetClass, setBatchTargetClass] = useState(null);
-    const [adminClasses, setAdminClasses] = useState([]);
-    const [loadingAdminClasses, setLoadingAdminClasses] = useState(false);
-    const [batchMode, setBatchMode] = useState('class');
-    const [selectedAdminClass, setSelectedAdminClass] = useState('');
-    const [manualCodesInput, setManualCodesInput] = useState('');
-    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-    const [batchSubmitting, setBatchSubmitting] = useState(false);
-    const [batchResult, setBatchResult] = useState(null);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [lecturers, setLecturers] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [adminClasses, setAdminClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    const [formData, setFormData] = useState({
-        class_code: '',
-        subject_id: '',
-        semester_id: '',
-        lecturer_id: '',
-        max_students: 50,
-        day_of_week: '2',
-        start_period: '1',
-        total_periods: '3',
-        room_id: '',
-        week_from: 1,
-        week_to: 16
+  const [search, setSearch] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterLecturer, setFilterLecturer] = useState('');
+
+  const [drawerClass, setDrawerClass] = useState(null);
+  const [drawerTab, setDrawerTab] = useState('overview');
+  const [roster, setRoster] = useState([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchClass, setBatchClass] = useState(null);
+  const [selectedAdminClass, setSelectedAdminClass] = useState('');
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [batchResult, setBatchResult] = useState(null);
+
+  const [formData, setFormData] = useState({
+    class_code: '',
+    subject_id: '',
+    semester_id: '',
+    lecturer_id: '',
+    max_students: 50,
+    day_of_week: '2',
+    start_period: '1',
+    total_periods: '3',
+    room_id: '',
+    week_from: 1,
+    week_to: 16
+  });
+
+  const fetchClasses = useCallback(async () => {
+    try {
+      const res = await axiosClient.get('/admin/classes');
+      if (res.success) {
+        setClasses(res.data || []);
+      }
+    } catch {
+      notify('Không thể tải danh sách lớp học phần. Vui lòng thử lại.', 'danger');
+    }
+  }, [notify]);
+
+  const fetchOptions = useCallback(async () => {
+    try {
+      const [subjRes, lectRes, semRes, roomRes, adminRes] = await Promise.all([
+        axiosClient.get('/admin/subjects'),
+        axiosClient.get('/admin/lecturers'),
+        axiosClient.get('/admin/semesters'),
+        axiosClient.get('/admin/rooms'),
+        axiosClient.get('/admin/administrative-classes')
+      ]);
+
+      if (subjRes.success) setSubjects(subjRes.data || []);
+      if (lectRes.success) setLecturers(lectRes.data || []);
+      if (roomRes.success) setRooms(roomRes.data || []);
+      if (adminRes.success && Array.isArray(adminRes.data)) setAdminClasses(adminRes.data);
+
+      if (semRes.success && semRes.data) {
+        setSemesters(semRes.data);
+        const active = semRes.data.find(s => s.is_active) || semRes.data[0];
+        if (active) {
+          setFilterSemester(String(active.id));
+          setFormData(prev => ({ ...prev, semester_id: String(active.id) }));
+        }
+      }
+      if (subjRes.success && subjRes.data && subjRes.data[0]) {
+        setFormData(prev => ({ ...prev, subject_id: String(subjRes.data[0].id) }));
+      }
+    } catch {
+      notify('Không thể tải các danh mục học thuật.', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchClasses();
+      fetchOptions();
     });
+  }, [fetchClasses, fetchOptions]);
 
+  const loadRoster = useCallback(async (clsId) => {
+    setLoadingRoster(true);
+    try {
+      const res = await axiosClient.get(`/admin/classes/${clsId}/students`);
+      if (res.success) {
+        setRoster(res.data || []);
+      }
+    } catch {
+      setRoster([]);
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, []);
 
-    async function fetchClasses() {
-        try {
-            const res = await axiosClient.get('/admin/classes');
-            if (res.success) {
-                setClasses(res.data);
-            }
-        } catch (err) {
-            console.error("Lỗi lấy danh sách lớp học phần:", err);
+  const openDrawer = (cls) => {
+    setDrawerClass(cls);
+    setDrawerTab('overview');
+    loadRoster(cls.id);
+  };
+
+  const closeDrawer = () => {
+    setDrawerClass(null);
+    setRoster([]);
+  };
+
+  const toggleStatus = async (cls) => {
+    try {
+      const newStatus = cls.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+      const res = await axiosClient.put(`/admin/classes/${cls.id}/status`, { status: newStatus });
+      if (res.success) {
+        notify(`Đã chuyển trạng thái lớp sang ${newStatus === 'OPEN' ? 'Đang mở' : 'Đã đóng'}.`, 'success');
+        fetchClasses();
+        if (drawerClass && drawerClass.id === cls.id) {
+          setDrawerClass(prev => ({ ...prev, status: newStatus }));
         }
-    };
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể đổi trạng thái lớp.', 'danger');
+    }
+  };
 
-    const fetchOptions = useCallback(async () => {
-        try {
-            const [subjRes, lectRes, semRes, roomRes] = await Promise.all([
-                axiosClient.get('/admin/subjects'),
-                axiosClient.get('/admin/lecturers'),
-                axiosClient.get('/admin/semesters'),
-                axiosClient.get('/admin/rooms')
-            ]);
-            if (subjRes.success) setSubjects(subjRes.data);
-            if (roomRes.success) setRooms(roomRes.data);
-            if (lectRes.success) setLecturers(lectRes.data);
-            if (semRes.success) {
-                setSemesters(semRes.data);
-                setFormData(prev => ({ ...prev, semester_id: String(semRes.data.find(s => s.is_active)?.id || semRes.data[0]?.id || '') }));
-            }
-            if (subjRes.data && subjRes.data.length > 0) {
-                setFormData(prev => ({ ...prev, subject_id: subjRes.data[0].id }));
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || "Không tải được danh mục mở lớp. Hãy tải lại trang.", "danger");
-        }
-    }, [notify]);
+  const cancelClass = async (cls) => {
+    const ok = await confirm(`Xác nhận hủy lớp học phần ${cls.class_code}? Mọi đăng ký chưa có điểm sẽ bị hủy.`);
+    if (!ok) return;
 
-    useEffect(() => { Promise.resolve().then(() => { fetchClasses(); fetchOptions(); }); }, [fetchOptions]);
+    try {
+      await axiosClient.put(`/admin/classes/${cls.id}/status`, { status: 'CANCELLED' });
+      notify('Đã hủy lớp học phần thành công.', 'success');
+      fetchClasses();
+      closeDrawer();
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể hủy lớp học phần này.', 'danger');
+    }
+  };
 
-    const toggleStatus = async (id, currentStatus) => {
-        try {
-            const newStatus = currentStatus === 'OPEN' ? 'CLOSED' : 'OPEN';
-            const res = await axiosClient.put(`/admin/classes/${id}/status`, { status: newStatus });
-            if (res.success) {
-                fetchClasses();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi cập nhật trạng thái lớp', 'danger');
-        }
-    };
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (creating) return;
+    if (!formData.class_code || !formData.subject_id || !formData.room_id) {
+      notify('Vui lòng điền mã lớp, chọn môn học và chọn phòng học.', 'warning');
+      return;
+    }
 
-    const cancelClass = async (id) => {
-        if (!await confirm('Hủy lớp sẽ hủy mọi đăng ký chưa có điểm và gỡ lịch học. Tiếp tục?')) return;
-        try {
-            await axiosClient.put(`/admin/classes/${id}/status`, { status: 'CANCELLED' });
-            fetchClasses();
-        } catch (err) { notify(err.response?.data?.message || 'Không thể hủy lớp.', 'danger'); }
-    };
+    setCreating(true);
+    try {
+      const payload = {
+        class_code: formData.class_code.trim(),
+        subject_id: Number(formData.subject_id),
+        semester_id: Number(formData.semester_id),
+        lecturer_id: formData.lecturer_id ? Number(formData.lecturer_id) : null,
+        max_students: Number(formData.max_students) || 50,
+        schedules: [
+          {
+            day_of_week: Number(formData.day_of_week),
+            start_period: Number(formData.start_period),
+            total_periods: Number(formData.total_periods),
+            room_id: Number(formData.room_id),
+            week_from: Number(formData.week_from),
+            week_to: Number(formData.week_to)
+          }
+        ]
+      };
 
-    const handleCreateClass = async (e) => {
-        e.preventDefault();
-        if (creating) return;
-        if (!formData.class_code || !formData.subject_id || !formData.room_id) {
-            notify('Vui lòng nhập mã lớp, chọn môn học và phòng học!');
-            return;
-        }
+      const res = await axiosClient.post('/admin/create-class', payload);
+      if (res.success) {
+        notify('Đã mở lớp học phần mới thành công!', 'success');
+        setShowCreateModal(false);
+        setFormData({
+          class_code: '',
+          subject_id: subjects[0]?.id ? String(subjects[0].id) : '',
+          semester_id: String(semesters.find(s => s.is_active)?.id || semesters[0]?.id || ''),
+          lecturer_id: '',
+          max_students: 50,
+          day_of_week: '2',
+          start_period: '1',
+          total_periods: '3',
+          room_id: '',
+          week_from: 1,
+          week_to: 16
+        });
+        fetchClasses();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Lỗi mở lớp học phần. Vui lòng kiểm tra xung đột phòng hoặc giảng viên.', 'danger');
+    } finally {
+      setCreating(false);
+    }
+  };
 
-        setCreating(true);
-        try {
-            const payload = {
-                class_code: formData.class_code.trim(),
-                subject_id: Number(formData.subject_id),
-                semester_id: Number(formData.semester_id),
-                lecturer_id: formData.lecturer_id ? Number(formData.lecturer_id) : null,
-                max_students: Number(formData.max_students) || 50,
-                schedules: [
-                    {
-                        day_of_week: Number(formData.day_of_week),
-                        start_period: Number(formData.start_period),
-                        total_periods: Number(formData.total_periods),
-                        room_id: Number(formData.room_id),
-                        week_from: Number(formData.week_from),
-                        week_to: Number(formData.week_to)
-                    }
-                ]
-            };
+  const handleBatchEnroll = async () => {
+    if (!batchClass || !selectedAdminClass) return;
+    setBatchSubmitting(true);
+    setBatchResult(null);
 
-            const res = await axiosClient.post('/admin/create-class', payload);
-            if (res.success) {
-                notify('Mở lớp học phần mới thành công!', 'success');
-                setShowCreateModal(false);
-                setFormData({
-                    class_code: '',
-                    subject_id: subjects[0]?.id || '',
-                    semester_id: String(semesters.find(s => s.is_active)?.id || semesters[0]?.id || ''),
-                    lecturer_id: '',
-                    max_students: 50,
-                    day_of_week: '2',
-                    start_period: '1',
-                    total_periods: '3',
-                    room_id: '',
-        week_from: 1,
-        week_to: 16
-                });
-                fetchClasses();
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi mở lớp học phần', 'danger');
-        } finally { setCreating(false); }
-    };
+    try {
+      const res = await axiosClient.post(`/admin/classes/${batchClass.id}/batch-enroll`, {
+        class_name: selectedAdminClass
+      });
+      if (res.success) {
+        setBatchResult(res.data);
+        notify(res.message || 'Xếp lớp theo đoàn thành công!', 'success');
+        fetchClasses();
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Lỗi xếp lớp tự động.', 'danger');
+    } finally {
+      setBatchSubmitting(false);
+    }
+  };
 
-    const handleViewStudents = async (cls) => {
-        setSelectedClass(cls);
-        setShowStudentsModal(true);
-        setLoadingStudents(true);
-        try {
-            const res = await axiosClient.get(`/admin/classes/${cls.id}/students`);
-            if (res.success) {
-                setEnrolledStudents(res.data);
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi lấy danh sách sinh viên của lớp: Vui lòng dùng nút làm mới để thử lại.', 'danger');
-            setEnrolledStudents([]);
-        } finally {
-            setLoadingStudents(false);
-        }
-    };
+  const handleExportRoster = async (cls) => {
+    try {
+      await downloadFile(`/reports/export-class-excel/${cls.id}`, `Danh_sach_lop_${cls.class_code}.xlsx`);
+    } catch {
+      notify('Không thể xuất danh sách sinh viên của lớp.', 'danger');
+    }
+  };
 
-    const handleOpenBatchEnroll = async (c) => {
-        setBatchTargetClass(c);
-        setShowBatchModal(true);
-        setBatchResult(null);
-        setSelectedStudentIds([]);
-        setSelectedAdminClass('');
-        setManualCodesInput('');
-        setBatchMode('class');
-        setLoadingAdminClasses(true);
-        try {
-            const res = await axiosClient.get('/admin/administrative-classes');
-            if (res.success && Array.isArray(res.data)) {
-                setAdminClasses(res.data);
-                if (res.data.length > 0) {
-                    const firstClass = res.data[0];
-                    setSelectedAdminClass(firstClass.class_name);
-                    setSelectedStudentIds(firstClass.students.map(s => s.id));
-                }
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Không thể tải danh sách lớp sinh hoạt.', 'danger');
-        } finally {
-            setLoadingAdminClasses(false);
-        }
-    };
-
-    const handleSelectAdminClass = (className) => {
-        setSelectedAdminClass(className);
-        const found = adminClasses.find(c => c.class_name === className);
-        if (found) {
-            setSelectedStudentIds(found.students.map(s => s.id));
-        } else {
-            setSelectedStudentIds([]);
-        }
-    };
-
-    const handleToggleStudent = (studentId) => {
-        setSelectedStudentIds(prev =>
-            prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]
-        );
-    };
-
-    const handleToggleAllStudents = (currentClassStudents) => {
-        if (!currentClassStudents || currentClassStudents.length === 0) return;
-        const allIds = currentClassStudents.map(s => s.id);
-        const allSelected = allIds.every(id => selectedStudentIds.includes(id));
-        if (allSelected) {
-            setSelectedStudentIds(prev => prev.filter(id => !allIds.includes(id)));
-        } else {
-            setSelectedStudentIds(prev => Array.from(new Set([...prev, ...allIds])));
-        }
-    };
-
-    const handleBatchSubmit = async (e) => {
-        if (e && e.preventDefault) e.preventDefault();
-        if (!batchTargetClass) return;
-
-        let payload = {};
-        if (batchMode === 'class') {
-            if (selectedStudentIds.length === 0) {
-                notify('Vui lòng chọn ít nhất 1 sinh viên để đăng ký.', 'warning');
-                return;
-            }
-            payload = { student_ids: selectedStudentIds };
-        } else {
-            const codes = manualCodesInput
-                .split(/[\s,;\n\r]+/)
-                .map(s => s.trim().toUpperCase())
-                .filter(Boolean);
-            if (codes.length === 0) {
-                notify('Vui lòng nhập danh sách mã sinh viên.', 'warning');
-                return;
-            }
-            payload = { student_codes: codes };
-        }
-
-        setBatchSubmitting(true);
-        try {
-            const res = await axiosClient.post(`/admin/classes/${batchTargetClass.id}/batch-enroll`, payload);
-            if (res.success) {
-                setBatchResult(res.data);
-                notify(res.message || 'Đăng ký thành công.', 'success');
-                fetchClasses();
-                if (batchTargetClass) {
-                    setBatchTargetClass(prev => ({
-                        ...prev,
-                        current_students: res.data.current_students
-                    }));
-                }
-            }
-        } catch (err) {
-            notify(err.response?.data?.message || 'Lỗi khi đăng ký hàng loạt.', 'danger');
-        } finally {
-            setBatchSubmitting(false);
-        }
-    };
-
-    const filteredClasses = classes.filter(c => {
-        const query = searchTerm.toLowerCase();
-        const matchSearch = !query ||
-            c.class_code.toLowerCase().includes(query) ||
-            c.subject_name.toLowerCase().includes(query) ||
-            (c.lecturer_name && c.lecturer_name.toLowerCase().includes(query)) ||
-            (c.room && c.room.toLowerCase().includes(query));
-        const matchSemester = filterSemester ? String(c.semester_id) === filterSemester : true;
-        const matchSubject = filterSubject ? String(c.subject_id) === filterSubject : true;
-        const matchStatus = filterStatus ? c.status === filterStatus : true;
-        const matchLecturer = filterLecturer ? String(c.lecturer_id) === filterLecturer : true;
-        return matchSearch && matchSemester && matchSubject && matchStatus && matchLecturer;
+  const filtered = useMemo(() => {
+    return classes.filter(c => {
+      const matchSearch = !search ||
+        `${c.class_code} ${c.subject_name} ${c.lecturer_name || ''}`.toLowerCase().includes(search.toLowerCase());
+      const matchSemester = !filterSemester || String(c.semester_id) === filterSemester;
+      const matchSubject = !filterSubject || String(c.subject_id) === filterSubject;
+      const matchStatus = !filterStatus || c.status === filterStatus;
+      const matchLecturer = !filterLecturer || String(c.lecturer_id) === filterLecturer;
+      return matchSearch && matchSemester && matchSubject && matchStatus && matchLecturer;
     });
+  }, [classes, search, filterSemester, filterSubject, filterStatus, filterLecturer]);
 
-    return (
-        <div className="admin-pane">
-            <RecordWorkspace heading={<>
-                    <div>
-                        <h1 className="fw-bold mb-1">
-                            Lớp học phần
-                        </h1>
-                        <p className="text-muted small mb-0">
-                            Mở lớp mới, phân công giảng viên, cấu hình lịch học và đóng/mở đăng ký tín chỉ
-                        </p>
-                    </div>
-                    <button className="btn btn-primary btn-sm shadow-sm" onClick={() => setShowCreateModal(true)}>
-                        <i aria-hidden="true" className="bi bi-plus-circle me-1"></i> Mở lớp học phần
-                    </button>
-                </>} filters={<>
-                    <div>
-                        <label htmlFor="classes-search-input" className="form-label small fw-bold text-muted mb-1">Tìm kiếm</label>
-                        <div className="input-group">
-                            <span className="input-group-text bg-white border-end-0 text-muted">
-                                <i aria-hidden="true" className="bi bi-search"></i>
-                            </span>
-                            <input
-                                id="classes-search-input"
-                                type="text"
-                                className="form-control border-start-0"
-                                aria-label="Tìm kiếm lớp học phần"
-                                placeholder="Mã lớp, môn học, giảng viên..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="classes-filter-semester" className="form-label small fw-bold text-muted mb-1">Học kỳ</label>
-                        <select
-                            id="classes-filter-semester"
-                            aria-label="Lọc theo học kỳ"
-                            className="form-select"
-                            value={filterSemester}
-                            onChange={(e) => setFilterSemester(e.target.value)}
-                        >
-                            <option value="">-- Tất cả học kỳ --</option>
-                            {semesters.map(s => (
-                                <option key={s.id} value={s.id}>
-                                    {s.semester_name} {s.is_active ? '(Hiện hành)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="classes-filter-subject" className="form-label small fw-bold text-muted mb-1">Môn học</label>
-                        <select
-                            id="classes-filter-subject"
-                            aria-label="Lọc theo môn học"
-                            className="form-select"
-                            value={filterSubject}
-                            onChange={(e) => setFilterSubject(e.target.value)}
-                        >
-                            <option value="">-- Tất cả môn học --</option>
-                            {subjects.map(s => (
-                                <option key={s.id} value={s.id}>{s.subject_code} - {s.subject_name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="classes-filter-status" className="form-label small fw-bold text-muted mb-1">Trạng thái lớp</label>
-                        <select
-                            id="classes-filter-status"
-                            aria-label="Lọc theo trạng thái lớp"
-                            className="form-select"
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                        >
-                            <option value="">-- Tất cả trạng thái --</option>
-                            <option value="OPEN">Đang Mở Đăng Ký</option>
-                            <option value="CLOSED">Đã Đóng Đăng Ký</option>
-                            <option value="CANCELLED">Đã Hủy Lớp</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="classes-filter-lecturer" className="form-label small fw-bold text-muted mb-1">Giảng viên</label>
-                        <select
-                            id="classes-filter-lecturer"
-                            aria-label="Lọc theo giảng viên"
-                            className="form-select"
-                            value={filterLecturer}
-                            onChange={(e) => setFilterLecturer(e.target.value)}
-                        >
-                            <option value="">-- Tất cả giảng viên --</option>
-                            {lecturers.map(l => (
-                                <option key={l.id} value={l.id}>{l.full_name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    {(searchTerm || filterSemester || filterSubject || filterStatus || filterLecturer) && (
-                        <button
-                            type="button"
-                            className="btn btn-outline-secondary btn-sm w-100"
-                            onClick={() => {
-                                setSearchTerm('');
-                                setFilterSemester('');
-                                setFilterSubject('');
-                                setFilterStatus('');
-                                setFilterLecturer('');
-                            }}
-                        >
-                            <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Xóa bộ lọc
-                        </button>
-                    )}
-                </>} sheetTitle="Danh sách lớp học phần" filterTitle="Bộ lọc lớp học phần" summary={<>
-                    <span className="badge bg-light text-dark border px-3 py-2">
-                        Hiển thị <b>{filteredClasses.length}</b> / <b>{classes.length}</b> lớp học phần
-                    </span>
-                </>}>
-<div className="table-container-responsive">
-                    <table className="table-modern class-directory-table text-center">
-                        <thead>
-                            <tr>
-                                <th scope="col">Mã Lớp HP</th>
-                                <th scope="col" className="text-start">Môn Học</th>
-                                <th scope="col" className="text-start">Giảng Viên Phụ Trách</th>
-                                <th scope="col">Lịch Học</th>
-                                <th scope="col">Sĩ Số / Slot</th>
-                                <th scope="col">Trạng thái</th>
-                                <th scope="col">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredClasses.length > 0 ? (
-                                filteredClasses.map(c => (
-                                    <tr key={c.id}>
-                                        <td className="fw-bold text-primary">{c.class_code}</td>
-                                        <td className="text-start fw-semibold">{c.subject_name}</td>
-                                        <td className="text-start">{c.lecturer_name || 'Chưa xếp'}</td>
-                                        <td className="small text-muted">
-                                            <ClassSchedule schedules={c.schedules} />
-                                            {c.room && <span className="d-block text-secondary">{c.room}</span>}
-                                        </td>
-                                        <td>
-                                            <span className={c.current_students >= c.max_students ? 'badge bg-danger-subtle text-danger' : 'badge bg-primary-subtle text-primary'}>
-                                                {c.current_students} / {c.max_students}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className={`badge ${c.status === 'OPEN' ? 'bg-success' : 'bg-danger'}`}>
-                                                {c.status === 'OPEN' ? 'Đang Mở' : c.status === 'CANCELLED' ? 'Đã Hủy' : 'Đã Đóng'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <RecordActions label={c.full_name || c.subject_name || c.username || c.class_code}><button disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked)} onClick={() => setEditingClass(c)}>Sửa thông tin lớp</button>
-                                                <button className="btn btn-sm btn-outline-primary" disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked)} onClick={() => { fetchOptions(); setScheduleClass(c); }}>Đổi lịch & phòng</button>
-                                                <button
-                                                    className={`btn btn-sm ${c.status === 'OPEN' ? 'btn-outline-danger' : 'btn-outline-success'}`}
-                                                    disabled={c.status === 'CANCELLED'} onClick={() => toggleStatus(c.id, c.status)}
-                                                    title={c.status === 'OPEN' ? 'Đóng đăng ký lớp' : 'Mở lại đăng ký lớp'}
-                                                >
-                                                    <i aria-hidden="true" className={`bi ${c.status === 'OPEN' ? 'bi-lock' : 'bi-unlock'}`}></i>
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm btn-outline-info"
-                                                    onClick={() => handleViewStudents(c)}
-                                                    title="Xem danh sách sinh viên đã đăng ký" aria-label="Xem danh sách sinh viên đã đăng ký"
-                                                >
-                                                    <i aria-hidden="true" className="bi bi-people"></i>
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm btn-outline-success"
-                                                    onClick={() => handleOpenBatchEnroll(c)}
-                                                    title="Đăng ký theo lớp sinh hoạt"
-                                                    aria-label="Đăng ký theo lớp sinh hoạt"
-                                                    disabled={c.status === 'CANCELLED' || Boolean(c.grades_locked) || c.current_students >= c.max_students}
-                                                >
-                                                    <i aria-hidden="true" className="bi bi-person-plus-fill"></i>
-                                                </button>
-                                                <button className="btn btn-sm btn-outline-danger" title="Hủy lớp" aria-label="Hủy lớp" disabled={c.status === 'CANCELLED'} onClick={() => cancelClass(c.id)}><i aria-hidden="true" className="bi bi-x-circle"></i></button>
-                                            </RecordActions>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="7" className="text-center py-5 text-muted">
-                                        <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                                        <div className="fw-semibold">Không tìm thấy lớp học phần phù hợp.</div>
-                                        <div className="small mb-3">Hãy thử thay đổi từ khóa hoặc điều chỉnh các tiêu chí lọc.</div>
-                                        {(searchTerm || filterSemester || filterSubject || filterStatus || filterLecturer) && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline-primary btn-sm"
-                                                onClick={() => {
-                                                    setSearchTerm('');
-                                                    setFilterSemester('');
-                                                    setFilterSubject('');
-                                                    setFilterStatus('');
-                                                    setFilterLecturer('');
-                                                }}
-                                            >
-                                                <i aria-hidden="true" className="bi bi-arrow-counterclockwise me-1"></i> Đặt lại bộ lọc
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-</RecordWorkspace>
-
-            {showCreateModal && (
-                <AccessibleDialog className="dialog-lg" onClose={() => { if (!creating) setShowCreateModal(false); }}>
-                    <div className="modal-dialog modal-dialog-centered modal-lg">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <h5 className="modal-title fw-bold">
-                                    <i aria-hidden="true" className="bi bi-plus-circle text-primary me-2"></i>Mở lớp học phần
-                                </h5>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={creating} onClick={() => setShowCreateModal(false)}></button>
-                            </div>
-                            <form onSubmit={handleCreateClass}>
-                                <div className="modal-body p-4"><fieldset disabled={creating}>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-1">Mã Lớp Học Phần *</label>
-                                            <input id="ManageClasses-field-1"
-                                                type="text"
-                                                className="form-control font-monospace text-uppercase"
-                                                placeholder="VD: CNTT101_01"
-                                                required
-                                                value={formData.class_code}
-                                                onChange={(e) => setFormData({ ...formData, class_code: e.target.value.toUpperCase() })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-2">Môn Học *</label>
-                                            <select id="ManageClasses-field-2"
-                                                className="form-select"
-                                                required
-                                                value={formData.subject_id}
-                                                onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
-                                            >
-                                                <option value="">-- Chọn Môn Học --</option>
-                                                {subjects.map(s => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {s.subject_code} - {s.subject_name} ({s.credits} TC)
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="col-md-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-3">Học kỳ *</label>
-                                            <select id="ManageClasses-field-3" required className="form-select" value={formData.semester_id} onChange={e => setFormData({ ...formData, semester_id: e.target.value })}>
-                                                <option value="">Chọn học kỳ</option>
-                                                {semesters.map(s => <option key={s.id} value={s.id}>{s.semester_name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-4">Giảng Viên Phụ Trách</label>
-                                            <select id="ManageClasses-field-4"
-                                                className="form-select"
-                                                value={formData.lecturer_id}
-                                                onChange={(e) => setFormData({ ...formData, lecturer_id: e.target.value })}
-                                            >
-                                                <option value="">-- Chưa phân công giảng viên --</option>
-                                                {lecturers.map(l => (
-                                                    <option key={l.id} value={l.id}>
-                                                        {l.full_name} ({l.degree || 'ThS'})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-5">Sĩ Số Tối Đa (Slots)</label>
-                                            <input id="ManageClasses-field-5"
-                                                type="number"
-                                                className="form-control"
-                                                min="10"
-                                                max="200"
-                                                value={formData.max_students}
-                                                onChange={(e) => setFormData({ ...formData, max_students: e.target.value, room_id: '' })}
-                                            />
-                                        </div>
-
-                                        <div className="col-12"><hr className="my-2"/></div>
-                                        <div className="col-12">
-                                            <h6 className="fw-bold small text-primary mb-2">
-                                                <i aria-hidden="true" className="bi bi-clock me-1"></i> Thiết Lập Thời Khóa Biểu Lớp Học
-                                            </h6>
-                                        </div>
-
-                                        <div className="col-md-3">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-6">Thứ trong tuần</label>
-                                            <select id="ManageClasses-field-6"
-                                                className="form-select"
-                                                value={formData.day_of_week}
-                                                onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
-                                            >
-                                                <option value="2">Thứ Hai</option>
-                                                <option value="3">Thứ Ba</option>
-                                                <option value="4">Thứ Tư</option>
-                                                <option value="5">Thứ Năm</option>
-                                                <option value="6">Thứ Sáu</option>
-                                                <option value="7">Thứ Bảy</option>
-                                                <option value="8">Chủ Nhật</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-7">Tiết Bắt Đầu</label>
-                                            <select id="ManageClasses-field-7"
-                                                className="form-select"
-                                                value={formData.start_period}
-                                                onChange={(e) => setFormData({ ...formData, start_period: e.target.value })}
-                                            >
-                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(p => (
-                                                    <option key={p} value={p}>Tiết {p}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-8">Số Tiết Học</label>
-                                            <select id="ManageClasses-field-8"
-                                                className="form-select"
-                                                value={formData.total_periods}
-                                                onChange={(e) => setFormData({ ...formData, total_periods: e.target.value })}
-                                            >
-                                                <option value="1">1 Tiết</option>
-                                                <option value="2">2 Tiết</option>
-                                                <option value="3">3 Tiết</option>
-                                                <option value="4">4 Tiết</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label" htmlFor="ManageClasses-field-9">Từ tuần</label>
-                                            <input id="ManageClasses-field-9" type="number" min="1" max="53" required className="form-control" value={formData.week_from} onChange={e => setFormData({ ...formData, week_from: e.target.value })} />
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label" htmlFor="ManageClasses-field-10">Đến tuần</label>
-                                            <input id="ManageClasses-field-10" type="number" min={formData.week_from} max="53" required className="form-control" value={formData.week_to} onChange={e => setFormData({ ...formData, week_to: e.target.value })} />
-                                        </div>
-                                        <div className="col-md-3">
-                                            <label className="form-label small fw-bold" htmlFor="ManageClasses-field-11">Phòng Học</label>
-                                            <select id="ManageClasses-field-11" className="form-select" required value={formData.room_id} onChange={e => setFormData({ ...formData, room_id: e.target.value })}>
-                                                <option value="">Chọn phòng đủ sức chứa</option>
-                                                {rooms.filter(r => r.status === 'ACTIVE' && r.building_status === 'ACTIVE' && r.capacity >= Number(formData.max_students)).map(r => <option key={r.id} value={r.id}>{r.label} · {r.capacity} chỗ</option>)}
-                                            </select>
-                                            <small className="text-secondary">Danh mục tại Tòa nhà & phòng học.</small>
-                                        </div>
-                                    </div>
-                                </fieldset></div>
-                                <div className="modal-footer bg-light">
-                                    <button type="button" className="btn btn-secondary btn-sm" disabled={creating} onClick={() => setShowCreateModal(false)}>
-                                        Hủy
-                                    </button>
-                                    <button type="submit" className="btn btn-primary btn-sm px-3" disabled={creating}>
-                                        {creating ? 'Đang mở lớp…' : <><i aria-hidden="true" className="bi bi-check-circle me-1"></i> Xác nhận mở lớp</>}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
-
-            {editingClass && <TrainingEditor resource="classes" record={editingClass} lecturers={lecturers} onClose={() => setEditingClass(null)} onSaved={fetchClasses} />}
-            {scheduleClass && <ClassScheduleEditor courseClass={scheduleClass} rooms={rooms} onClose={() => setScheduleClass(null)} onSaved={fetchClasses} />}
-            {showStudentsModal && (
-                <AccessibleDialog className="dialog-lg" onClose={() => setShowStudentsModal(false)}>
-                    <div className="modal-dialog modal-dialog-centered modal-lg">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <div>
-                                    <h5 className="modal-title fw-bold mb-0">
-                                        <i aria-hidden="true" className="bi bi-people text-primary me-2"></i>Sinh Viên Lớp: {selectedClass?.class_code}
-                                    </h5>
-                                    <small className="text-muted">{selectedClass?.subject_name} - Sĩ số hiện tại: {selectedClass?.current_students}/{selectedClass?.max_students}</small>
-                                </div>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" onClick={() => setShowStudentsModal(false)}></button>
-                            </div>
-                            <div className="modal-body p-3">
-                                {loadingStudents ? (
-                                    <div className="text-center py-4">
-                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                        <span className="ms-2 small text-muted">Đang tải danh sách sinh viên...</span>
-                                    </div>
-                                ) : enrolledStudents.length > 0 ? (
-                                    <div className="table-responsive">
-                                        <table className="table table-sm table-hover align-middle mb-0">
-                                            <thead className="table-light">
-                                                <tr>
-                                                    <th scope="col">STT</th>
-                                                    <th scope="col">Mã sinh viên</th>
-                                                    <th scope="col">Họ và tên</th>
-                                                    <th scope="col">Lớp sinh hoạt</th>
-                                                    <th scope="col">Thời Gian ĐK</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {enrolledStudents.map((s, idx) => (
-                                                    <tr key={s.id || idx}>
-                                                        <td>{idx + 1}</td>
-                                                        <td className="fw-bold text-primary font-monospace">{s.student_code}</td>
-                                                        <td className="fw-semibold">{s.full_name}</td>
-                                                        <td><span className="badge bg-light text-dark border">{s.class_name || 'K74'}</span></td>
-                                                        <td className="small text-muted">{s.enrollment_date ? new Date(s.enrollment_date).toLocaleDateString('vi-VN') : 'Mới đăng ký'}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-4 text-muted">
-                                        <i aria-hidden="true" className="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                                        Chưa có sinh viên nào đăng ký vào lớp học phần này.
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer bg-light">
-                                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowStudentsModal(false)}>
-                                    Đóng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
-
-            {showBatchModal && (
-                <AccessibleDialog className="dialog-xl" onClose={() => { if (!batchSubmitting) setShowBatchModal(false); }}>
-                    <div className="modal-dialog modal-dialog-centered modal-xl">
-                        <div className="modal-content border-0 shadow">
-                            <div className="modal-header bg-light">
-                                <div>
-                                    <h5 className="modal-title fw-bold mb-0">
-                                        <i aria-hidden="true" className="bi bi-person-plus-fill text-primary me-2"></i>Đăng Ký Theo Lớp / DSSV
-                                    </h5>
-                                    <small className="text-muted">
-                                        Lớp HP: <strong className="text-primary">{batchTargetClass?.class_code}</strong> ({batchTargetClass?.subject_name}) · Sĩ số: <strong className={batchTargetClass?.current_students >= batchTargetClass?.max_students ? 'text-danger' : 'text-success'}>{batchTargetClass?.current_students}/{batchTargetClass?.max_students}</strong> (Còn trống: {Math.max(0, (batchTargetClass?.max_students || 0) - (batchTargetClass?.current_students || 0))} chỗ)
-                                    </small>
-                                </div>
-                                <button type="button" className="btn-close" aria-label="Đóng cửa sổ" disabled={batchSubmitting} onClick={() => setShowBatchModal(false)}></button>
-                            </div>
-                            <div className="modal-body p-4">
-                                {batchResult ? (
-                                    <div className="d-flex flex-column gap-3">
-                                        <div className={`alert ${batchResult.enrolledCount > 0 ? 'alert-success' : 'alert-warning'} d-flex align-items-center mb-0`}>
-                                            <i aria-hidden="true" className={`bi ${batchResult.enrolledCount > 0 ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} fs-4 me-3`}></i>
-                                            <div>
-                                                <div className="fw-bold">Kết quả xử lý đăng ký</div>
-                                                <div className="small">
-                                                    Đã thêm thành công: <strong className="text-success">{batchResult.enrolledCount}</strong> sinh viên · Bỏ qua: <strong className="text-danger">{batchResult.skippedCount}</strong> sinh viên.
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {batchResult.skippedList && batchResult.skippedList.length > 0 && (
-                                            <div>
-                                                <h6 className="fw-bold small text-danger mb-2">
-                                                    <i aria-hidden="true" className="bi bi-x-circle me-1"></i> Danh sách sinh viên không thể đăng ký ({batchResult.skippedList.length}):
-                                                </h6>
-                                                <div className="table-responsive border rounded" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                                                    <table className="table table-sm table-hover align-middle mb-0">
-                                                        <thead className="table-light sticky-top">
-                                                            <tr>
-                                                                <th scope="col">MSSV</th>
-                                                                <th scope="col">Họ và tên</th>
-                                                                <th scope="col">Lý do</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {batchResult.skippedList.map((item, idx) => (
-                                                                <tr key={idx}>
-                                                                    <td className="font-monospace fw-bold text-primary">{item.student_code}</td>
-                                                                    <td>{item.full_name}</td>
-                                                                    <td><span className="badge bg-danger-subtle text-danger border border-danger-subtle">{item.reason}</span></td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {batchResult.successList && batchResult.successList.length > 0 && (
-                                            <div>
-                                                <h6 className="fw-bold small text-success mb-2">
-                                                    <i aria-hidden="true" className="bi bi-check-circle me-1"></i> Sinh viên đã đăng ký thành công ({batchResult.successList.length}):
-                                                </h6>
-                                                <div className="table-responsive border rounded" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                                    <table className="table table-sm table-hover align-middle mb-0">
-                                                        <thead className="table-light sticky-top">
-                                                            <tr>
-                                                                <th scope="col">STT</th>
-                                                                <th scope="col">MSSV</th>
-                                                                <th scope="col">Họ và tên</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {batchResult.successList.map((item, idx) => (
-                                                                <tr key={idx}>
-                                                                    <td>{idx + 1}</td>
-                                                                    <td className="font-monospace fw-bold text-success">{item.student_code}</td>
-                                                                    <td>{item.full_name}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="d-flex justify-content-end gap-2 pt-2">
-                                            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setBatchResult(null)}>
-                                                <i aria-hidden="true" className="bi bi-arrow-repeat me-1"></i>Đăng ký tiếp
-                                            </button>
-                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowBatchModal(false)}>
-                                                Hoàn tất
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <ul className="nav nav-pills mb-3" role="tablist">
-                                            <li className="nav-item" role="presentation">
-                                                <button
-                                                    type="button"
-                                                    className={`nav-link py-1 px-3 btn-sm ${batchMode === 'class' ? 'active' : ''}`}
-                                                    onClick={() => setBatchMode('class')}
-                                                >
-                                                    <i aria-hidden="true" className="bi bi-collection me-1"></i> Theo Lớp Sinh Hoạt
-                                                </button>
-                                            </li>
-                                            <li className="nav-item" role="presentation">
-                                                <button
-                                                    type="button"
-                                                    className={`nav-link py-1 px-3 btn-sm ${batchMode === 'manual' ? 'active' : ''}`}
-                                                    onClick={() => setBatchMode('manual')}
-                                                >
-                                                    <i aria-hidden="true" className="bi bi-card-text me-1"></i> Nhập Danh Sách MSSV
-                                                </button>
-                                            </li>
-                                        </ul>
-
-                                        {batchMode === 'class' ? (
-                                            <div>
-                                                {loadingAdminClasses ? (
-                                                    <div className="text-center py-4">
-                                                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                                        <span className="ms-2 small text-muted">Đang tải danh sách lớp sinh hoạt...</span>
-                                                    </div>
-                                                ) : (
-                                                    <div>
-                                                        <div className="mb-3">
-                                                            <label htmlFor="batch-select-class" className="form-label small fw-bold">Chọn Lớp Sinh Hoạt</label>
-                                                            <select
-                                                                id="batch-select-class"
-                                                                className="form-select"
-                                                                value={selectedAdminClass}
-                                                                onChange={(e) => handleSelectAdminClass(e.target.value)}
-                                                            >
-                                                                <option value="">-- Chọn một lớp sinh hoạt --</option>
-                                                                {adminClasses.map(ac => (
-                                                                    <option key={ac.class_name} value={ac.class_name}>
-                                                                        {ac.class_name} ({ac.student_count} sinh viên)
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-
-                                                        {selectedAdminClass && (() => {
-                                                            const currentClass = adminClasses.find(c => c.class_name === selectedAdminClass);
-                                                            const currentStudents = currentClass ? currentClass.students : [];
-                                                            const allSelected = currentStudents.length > 0 && currentStudents.every(s => selectedStudentIds.includes(s.id));
-                                                            const remainingSlots = Math.max(0, (batchTargetClass?.max_students || 0) - (batchTargetClass?.current_students || 0));
-
-                                                            return (
-                                                                <div>
-                                                                    <div className="d-flex justify-content-between align-items-center mb-2">
-                                                                        <span className="small text-muted">
-                                                                            Đang chọn: <strong className="text-primary">{selectedStudentIds.length}</strong> / {currentStudents.length} SV
-                                                                            {selectedStudentIds.length > remainingSlots && (
-                                                                                <span className="text-danger ms-2 fw-semibold">
-                                                                                    (Vượt quá số chỗ trống: {remainingSlots})
-                                                                                </span>
-                                                                            )}
-                                                                        </span>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="btn btn-sm btn-link p-0 text-decoration-none"
-                                                                            onClick={() => handleToggleAllStudents(currentStudents)}
-                                                                        >
-                                                                            {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="table-responsive border rounded" style={{ maxHeight: '260px', overflowY: 'auto' }}>
-                                                                        <table className="table table-sm table-hover align-middle mb-0">
-                                                                            <thead className="table-light sticky-top">
-                                                                                <tr>
-                                                                                    <th scope="col" style={{ width: '40px' }}>
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            className="form-check-input"
-                                                                                            checked={allSelected}
-                                                                                            onChange={() => handleToggleAllStudents(currentStudents)}
-                                                                                            aria-label="Chọn tất cả sinh viên lớp này"
-                                                                                        />
-                                                                                    </th>
-                                                                                    <th scope="col">MSSV</th>
-                                                                                    <th scope="col">Họ và tên</th>
-                                                                                    <th scope="col">Khóa / Năm</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                {currentStudents.map(s => {
-                                                                                    const isChecked = selectedStudentIds.includes(s.id);
-                                                                                    return (
-                                                                                        <tr key={s.id} onClick={() => handleToggleStudent(s.id)} style={{ cursor: 'pointer' }}>
-                                                                                            <td>
-                                                                                                <input
-                                                                                                    type="checkbox"
-                                                                                                    className="form-check-input"
-                                                                                                    checked={isChecked}
-                                                                                                    onChange={() => handleToggleStudent(s.id)}
-                                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                                    aria-label={`Chọn sinh viên ${s.full_name}`}
-                                                                                                />
-                                                                                            </td>
-                                                                                            <td className="font-monospace fw-bold text-primary">{s.student_code}</td>
-                                                                                            <td>{s.full_name}</td>
-                                                                                            <td className="small text-muted">{s.academic_year || '—'}</td>
-                                                                                        </tr>
-                                                                                    );
-                                                                                })}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <div className="mb-3">
-                                                    <label htmlFor="batch-manual-codes" className="form-label small fw-bold">Danh Sách Mã Sinh Viên (MSSV)</label>
-                                                    <textarea
-                                                        id="batch-manual-codes"
-                                                        className="form-control font-monospace"
-                                                        rows="6"
-                                                        placeholder="Dán mã sinh viên cách nhau bằng dấu phẩy, khoảng trắng hoặc xuống dòng.&#10;VD:&#10;SV001&#10;SV002&#10;SV003"
-                                                        value={manualCodesInput}
-                                                        onChange={(e) => setManualCodesInput(e.target.value)}
-                                                    ></textarea>
-                                                    <div className="form-text small">
-                                                        Hệ thống sẽ tự động tách mã, tìm sinh viên tương ứng và kiểm tra điều kiện đăng ký.
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="modal-footer bg-light px-0 pb-0 mt-4">
-                                            <button
-                                                type="button"
-                                                className="btn btn-secondary btn-sm"
-                                                disabled={batchSubmitting}
-                                                onClick={() => setShowBatchModal(false)}
-                                            >
-                                                Hủy
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary btn-sm px-3"
-                                                disabled={batchSubmitting || (batchMode === 'class' && selectedStudentIds.length === 0) || (batchMode === 'manual' && !manualCodesInput.trim())}
-                                                onClick={handleBatchSubmit}
-                                            >
-                                                {batchSubmitting ? (
-                                                    <>
-                                                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                                                        Đang xử lý...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <i aria-hidden="true" className="bi bi-check-circle me-1"></i>
-                                                        Đăng ký cho {batchMode === 'class' ? `${selectedStudentIds.length} sinh viên` : 'danh sách'}
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </AccessibleDialog>
-            )}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', maxWidth: '1600px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-4)' }}>
+        <div>
+          <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Lớp học phần
+          </h1>
         </div>
-    );
-};
 
-export default ManageClasses;
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Button variant="outline" size="md" onClick={fetchClasses}>
+            Làm mới
+          </Button>
+          <Button variant="primary" size="md" onClick={() => setShowCreateModal(true)}>
+            + Mở lớp học phần mới
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+              Bộ lọc lớp học phần
+            </span>
+            <Badge variant="neutral">{filtered.length} lớp</Badge>
+          </div>
+          <DensityToggle />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-2)' }}>
+          <Input
+            placeholder="Tìm mã lớp, tên môn học, giảng viên…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            size="sm"
+            aria-label="Tìm kiếm lớp học phần"
+          />
+
+          <Select
+            value={filterSemester}
+            onChange={e => setFilterSemester(e.target.value)}
+            size="sm"
+            aria-label="Lọc theo học kỳ"
+            options={[
+              { value: '', label: 'Tất cả học kỳ' },
+              ...semesters.map(s => ({ value: String(s.id), label: s.semester_name + (s.is_active ? ' (Hiện hành)' : '') }))
+            ]}
+          />
+
+          <Select
+            value={filterSubject}
+            onChange={e => setFilterSubject(e.target.value)}
+            size="sm"
+            aria-label="Lọc theo môn học"
+            options={[
+              { value: '', label: 'Tất cả môn học' },
+              ...subjects.map(s => ({ value: String(s.id), label: `${s.subject_code} - ${s.subject_name}` }))
+            ]}
+          />
+
+          <Select
+            value={filterLecturer}
+            onChange={e => setFilterLecturer(e.target.value)}
+            size="sm"
+            aria-label="Lọc theo giảng viên"
+            options={[
+              { value: '', label: 'Tất cả giảng viên' },
+              ...lecturers.map(l => ({ value: String(l.id), label: l.full_name }))
+            ]}
+          />
+
+          <Select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            size="sm"
+            aria-label="Lọc theo trạng thái"
+            options={[
+              { value: '', label: 'Tất cả trạng thái' },
+              { value: 'OPEN', label: 'Đang mở (OPEN)' },
+              { value: 'CLOSED', label: 'Đã đóng (CLOSED)' },
+              { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' }
+            ]}
+          />
+        </div>
+
+        {loading ? (
+          <Skeleton.Table rows={8} cols={6} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title="Không tìm thấy lớp học phần phù hợp"
+            description="Hãy thử thay đổi tiêu chí tìm kiếm hoặc thêm lớp học phần mới cho học kỳ này."
+            action={
+              <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+                + Mở lớp học phần mới
+              </Button>
+            }
+          />
+        ) : (
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th width="28%">Mã lớp & Môn học</Table.Th>
+                <Table.Th width="18%">Giảng viên</Table.Th>
+                <Table.Th width="24%">Lịch học & Phòng</Table.Th>
+                <Table.Th width="14%">Sĩ số</Table.Th>
+                <Table.Th width="10%">Trạng thái</Table.Th>
+                <Table.Th width="6%" align="right">Thao tác</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filtered.map(cls => {
+                const ratio = Math.round((cls.current_students / (cls.max_students || 1)) * 100);
+                const isFull = cls.current_students >= cls.max_students;
+
+                return (
+                  <Table.Tr key={cls.id}>
+                    <Table.Td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                          {cls.subject_name}
+                        </strong>
+                        <span className="tabular-nums" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                          {cls.class_code} · {cls.credits} TC
+                        </span>
+                      </div>
+                    </Table.Td>
+
+                    <Table.Td>
+                      <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+                        {cls.lecturer_name || 'Chưa phân công'}
+                      </span>
+                    </Table.Td>
+
+                    <Table.Td>
+                      {Array.isArray(cls.schedules) && cls.schedules.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {cls.schedules.map((s, idx) => (
+                            <span key={idx} className="tabular-nums" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                              Thứ {s.day_of_week === 8 ? 'CN' : s.day_of_week} (Tiết {s.start_period}-{s.start_period + s.total_periods - 1}) · P.{s.room || '—'}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                          Chưa xếp lịch
+                        </span>
+                      )}
+                    </Table.Td>
+
+                    <Table.Td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span className="tabular-nums" style={{ fontSize: 'var(--font-size-xs)', fontWeight: '650', color: isFull ? 'var(--color-danger)' : 'var(--color-text-primary)' }}>
+                          {cls.current_students} / {cls.max_students} ({ratio}%)
+                        </span>
+                        <div style={{ height: '4px', backgroundColor: 'var(--color-border-subtle)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${Math.min(ratio, 100)}%`,
+                              backgroundColor: isFull ? 'var(--color-danger)' : ratio >= 80 ? 'var(--color-warning)' : 'var(--color-accent)'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </Table.Td>
+
+                    <Table.Td>
+                      {cls.status === 'OPEN' ? (
+                        <Badge variant="success">Đang mở</Badge>
+                      ) : cls.status === 'CLOSED' ? (
+                        <Badge variant="neutral">Đã đóng</Badge>
+                      ) : (
+                        <Badge variant="danger">Đã hủy</Badge>
+                      )}
+                    </Table.Td>
+
+                    <Table.Td align="right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDrawer(cls)}
+                      >
+                        Chi tiết
+                      </Button>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        )}
+      </div>
+
+      {drawerClass && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(2px)'
+          }}
+          onClick={closeDrawer}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              backgroundColor: 'var(--color-surface)',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: 'var(--shadow-xl)',
+              borderLeft: '1px solid var(--color-border)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
+                    {drawerClass.class_code}
+                  </h2>
+                  {drawerClass.status === 'OPEN' ? (
+                    <Badge variant="success">Đang mở</Badge>
+                  ) : (
+                    <Badge variant="neutral">{drawerClass.status}</Badge>
+                  )}
+                </div>
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
+                  {drawerClass.subject_name} ({drawerClass.credits} tín chỉ)
+                </p>
+              </div>
+
+              <button
+                onClick={closeDrawer}
+                style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--color-text-muted)', cursor: 'pointer' }}
+                aria-label="Đóng ngăn kéo"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--color-border)' }}>
+              <Tabs
+                tabs={[
+                  { key: 'overview', label: 'Tổng quan lớp' },
+                  { key: 'schedules', label: 'Thời khóa biểu' },
+                  { key: 'roster', label: `Sinh viên (${drawerClass.current_students})` }
+                ]}
+                activeTab={drawerTab}
+                onChange={setDrawerTab}
+              />
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              {drawerTab === 'overview' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)', padding: '18px', backgroundColor: 'var(--color-surface-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                    <div>
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Học kỳ</span>
+                      <p style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--color-text-primary)', margin: '4px 0 0 0' }}>
+                        {drawerClass.semester_name || 'Kỳ hiện hành'}
+                      </p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Giảng viên</span>
+                      <p style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--color-text-primary)', margin: '4px 0 0 0' }}>
+                        {drawerClass.lecturer_name || 'Chưa phân công'}
+                      </p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Sĩ số hiện tại</span>
+                      <p className="tabular-nums" style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--color-text-primary)', margin: '4px 0 0 0' }}>
+                        {drawerClass.current_students} sinh viên
+                      </p>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Sức chứa tối đa</span>
+                      <p className="tabular-nums" style={{ fontSize: 'var(--font-size-base)', fontWeight: '600', color: 'var(--color-text-primary)', margin: '4px 0 0 0' }}>
+                        {drawerClass.max_students} chỗ
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                      Thao tác điều hành lớp
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      <Button
+                        variant={drawerClass.status === 'OPEN' ? 'outline' : 'primary'}
+                        size="sm"
+                        onClick={() => toggleStatus(drawerClass)}
+                      >
+                        {drawerClass.status === 'OPEN' ? 'Đóng đăng ký lớp' : 'Mở lại đăng ký'}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBatchClass(drawerClass);
+                          setShowBatchModal(true);
+                        }}
+                      >
+                        Xếp lớp theo đoàn
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportRoster(drawerClass)}
+                      >
+                        Xuất danh sách (Excel)
+                      </Button>
+
+                      {drawerClass.status !== 'CANCELLED' && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => cancelClass(drawerClass)}
+                        >
+                          Hủy lớp học phần
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {drawerTab === 'schedules' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
+                    Lịch học định kỳ trong tuần
+                  </h3>
+                  {Array.isArray(drawerClass.schedules) && drawerClass.schedules.length > 0 ? (
+                    drawerClass.schedules.map((s, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '12px',
+                          backgroundColor: 'var(--color-surface-subtle)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}
+                      >
+                        <strong style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                          Thứ {s.day_of_week === 8 ? 'Chủ nhật' : s.day_of_week} · Tiết {s.start_period} đến {s.start_period + s.total_periods - 1}
+                        </strong>
+                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                          Phòng: <strong>{s.room || 'Đang cập nhật'}</strong> · Tuần học: {s.week_from} - {s.week_to}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState
+                      title="Chưa có lịch học"
+                      description="Lớp học phần này chưa được xếp lịch học cụ thể."
+                    />
+                  )}
+                </div>
+              )}
+
+              {drawerTab === 'roster' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--color-text-muted)' }}>
+                      Danh sách {roster.length} sinh viên đã đăng ký
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportRoster(drawerClass)}
+                    >
+                      Xuất Excel
+                    </Button>
+                  </div>
+
+                  {loadingRoster ? (
+                    <Skeleton.Table rows={6} cols={3} />
+                  ) : roster.length === 0 ? (
+                    <EmptyState
+                      title="Chưa có sinh viên đăng ký"
+                      description="Lớp học phần này hiện tại chưa có lượt đăng ký nào."
+                    />
+                  ) : (
+                    <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                      <Table>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th width="30%">Mã SV</Table.Th>
+                            <Table.Th width="45%">Họ và tên</Table.Th>
+                            <Table.Th width="25%">Lớp HC</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {roster.map(st => (
+                            <Table.Tr key={st.student_id || st.id}>
+                              <Table.Td>
+                                <span className="tabular-nums" style={{ fontWeight: '600', color: 'var(--color-accent-text)' }}>
+                                  {st.student_code}
+                                </span>
+                              </Table.Td>
+                              <Table.Td>
+                                <span style={{ color: 'var(--color-text-primary)' }}>
+                                  {st.full_name}
+                                </span>
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge variant="neutral">{st.class_name || '—'}</Badge>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Modal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Mở lớp học phần mới"
+        size="lg"
+      >
+        <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)' }}>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Môn học đào tạo *
+              </label>
+              <Select
+                value={formData.subject_id}
+                onChange={e => {
+                  const subId = e.target.value;
+                  const s = subjects.find(item => String(item.id) === subId);
+                  setFormData(prev => ({
+                    ...prev,
+                    subject_id: subId,
+                    class_code: s ? `LHP_${s.subject_code}_01` : prev.class_code
+                  }));
+                }}
+                required
+                options={subjects.map(s => ({ value: String(s.id), label: `${s.subject_code} - ${s.subject_name}` }))}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Mã lớp học phần *
+              </label>
+              <Input
+                value={formData.class_code}
+                onChange={e => setFormData({ ...formData, class_code: e.target.value })}
+                placeholder="VD: LHP_INT1004_02"
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Học kỳ tổ chức *
+              </label>
+              <Select
+                value={formData.semester_id}
+                onChange={e => setFormData({ ...formData, semester_id: e.target.value })}
+                required
+                options={semesters.map(s => ({ value: String(s.id), label: s.semester_name }))}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Giảng viên phụ trách
+              </label>
+              <Select
+                value={formData.lecturer_id}
+                onChange={e => setFormData({ ...formData, lecturer_id: e.target.value })}
+                options={[
+                  { value: '', label: 'Chưa phân công' },
+                  ...lecturers.map(l => ({ value: String(l.id), label: `${l.lecturer_code} - ${l.full_name}` }))
+                ]}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Sĩ số tối đa *
+              </label>
+              <Input
+                type="number"
+                min="10"
+                max="200"
+                value={formData.max_students}
+                onChange={e => setFormData({ ...formData, max_students: e.target.value })}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Phòng học *
+              </label>
+              <Select
+                value={formData.room_id}
+                onChange={e => setFormData({ ...formData, room_id: e.target.value })}
+                required
+                options={[
+                  { value: '', label: 'Chọn phòng học' },
+                  ...rooms.map(r => ({ value: String(r.id), label: `${r.building_code || ''} - P.${r.room_code || r.room_name} (Sức chứa: ${r.capacity})` }))
+                ]}
+              />
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
+            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: '650', display: 'block', marginBottom: '8px' }}>
+              Xếp lịch học ban đầu
+            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-3)' }}>
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px', fontWeight: '500' }}>Thứ trong tuần</label>
+                <Select
+                  size="sm"
+                  value={formData.day_of_week}
+                  onChange={e => setFormData({ ...formData, day_of_week: e.target.value })}
+                  options={[
+                    { value: '2', label: 'Thứ Hai' },
+                    { value: '3', label: 'Thứ Ba' },
+                    { value: '4', label: 'Thứ Tư' },
+                    { value: '5', label: 'Thứ Năm' },
+                    { value: '6', label: 'Thứ Sáu' },
+                    { value: '7', label: 'Thứ Bảy' }
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px', fontWeight: '500' }}>Tiết bắt đầu</label>
+                <Select
+                  size="sm"
+                  value={formData.start_period}
+                  onChange={e => setFormData({ ...formData, start_period: e.target.value })}
+                  options={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => ({ value: String(p), label: `Tiết ${p}` }))}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px', fontWeight: '500' }}>Số tiết</label>
+                <Select
+                  size="sm"
+                  value={formData.total_periods}
+                  onChange={e => setFormData({ ...formData, total_periods: e.target.value })}
+                  options={[
+                    { value: '2', label: '2 tiết' },
+                    { value: '3', label: '3 tiết' },
+                    { value: '4', label: '4 tiết' }
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px', fontWeight: '500' }}>Tuần học</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Input
+                    size="sm"
+                    type="number"
+                    value={formData.week_from}
+                    onChange={e => setFormData({ ...formData, week_from: e.target.value })}
+                    style={{ width: '50px' }}
+                  />
+                  <span>-</span>
+                  <Input
+                    size="sm"
+                    type="number"
+                    value={formData.week_to}
+                    onChange={e => setFormData({ ...formData, week_to: e.target.value })}
+                    style={{ width: '50px' }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowCreateModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={creating}>
+              Xác nhận mở lớp
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showBatchModal}
+        onClose={() => {
+          setShowBatchModal(false);
+          setBatchClass(null);
+          setBatchResult(null);
+        }}
+        title={`Xếp lớp theo đoàn · ${batchClass?.class_code || ''}`}
+        size="md"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
+              Chọn lớp hành chính nguồn *
+            </label>
+            <Select
+              value={selectedAdminClass}
+              onChange={e => setSelectedAdminClass(e.target.value)}
+              options={[
+                { value: '', label: 'Chọn lớp hành chính' },
+                ...adminClasses.map(c => ({ value: c.class_name, label: `${c.class_name} (${c.total_students} sinh viên)` }))
+              ]}
+            />
+          </div>
+
+          {batchResult && (
+            <div style={{ padding: '12px', backgroundColor: 'var(--color-surface-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', fontSize: 'var(--font-size-sm)' }}>
+              <strong>Kết quả xử lý:</strong>
+              <p style={{ margin: '4px 0 0 0', color: 'var(--color-success-text)' }}>
+                Đã thêm thành công: <strong>{batchResult.enrolledCount}</strong> sinh viên.
+              </p>
+              {batchResult.skippedCount > 0 && (
+                <p style={{ margin: '2px 0 0 0', color: 'var(--color-warning-text)' }}>
+                  Bỏ qua (đã có trong lớp hoặc xung đột): {batchResult.skippedCount} sinh viên.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => {
+                setShowBatchModal(false);
+                setBatchClass(null);
+              }}
+            >
+              Đóng
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              disabled={!selectedAdminClass}
+              loading={batchSubmitting}
+              onClick={handleBatchEnroll}
+            >
+              Xác nhận xếp lớp
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
