@@ -21,7 +21,8 @@ const Tabs = ({
 
     if (nextIndex !== null) {
       e.preventDefault();
-      onChange(tabs[nextIndex].id);
+      const targetId = tabs[nextIndex].id ?? tabs[nextIndex].key;
+      onChange(targetId);
     }
   };
 
@@ -39,16 +40,17 @@ const Tabs = ({
       className={className}
     >
       {tabs.map((tab, idx) => {
-        const isActive = tab.id === activeTab;
+        const tabId = tab.id ?? tab.key;
+        const isActive = tabId === activeTab;
         return (
           <button
-            key={tab.id}
+            key={tabId}
             role="tab"
             aria-selected={isActive}
-            aria-controls={`tabpanel-${tab.id}`}
-            id={`tab-${tab.id}`}
+            aria-controls={`tabpanel-${tabId}`}
+            id={`tab-${tabId}`}
             tabIndex={isActive ? 0 : -1}
-            onClick={() => onChange(tab.id)}
+            onClick={() => onChange(tabId)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             style={{
               display: 'inline-flex',

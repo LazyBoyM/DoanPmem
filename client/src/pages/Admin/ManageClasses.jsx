@@ -34,6 +34,20 @@ export default function ManageClasses() {
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [batchResult, setBatchResult] = useState(null);
 
+  const [showEditClassModal, setShowEditClassModal] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [editClassForm, setEditClassForm] = useState({
+    class_code: '',
+    lecturer_id: '',
+    max_students: 50
+  });
+  const [savingClass, setSavingClass] = useState(false);
+
+  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+  const [editingScheduleClass, setEditingScheduleClass] = useState(null);
+  const [schedulesList, setSchedulesList] = useState([]);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
   const [formData, setFormData] = useState({
     class_code: '',
     subject_id: '',
@@ -237,6 +251,138 @@ export default function ManageClasses() {
     }
   };
 
+  const openEditClassModal = (cls) => {
+    setEditingClass(cls);
+    setEditClassForm({
+      class_code: cls.class_code || '',
+      lecturer_id: cls.lecturer_id ? String(cls.lecturer_id) : '',
+      max_students: cls.max_students || 50
+    });
+    setShowEditClassModal(true);
+  };
+
+  const handleSaveClass = async (e) => {
+    e.preventDefault();
+    if (savingClass || !editingClass) return;
+    setSavingClass(true);
+    try {
+      const payload = {
+        class_code: editClassForm.class_code.trim(),
+        max_students: Number(editClassForm.max_students),
+        lecturer_id: editClassForm.lecturer_id ? Number(editClassForm.lecturer_id) : null
+      };
+      const res = await axiosClient.put(`/admin/classes/${editingClass.id}`, payload);
+      if (res.success) {
+        notify(res.message || 'Đã cập nhật thông tin lớp học phần!', 'success');
+        setShowEditClassModal(false);
+        const refreshRes = await axiosClient.get('/admin/classes');
+        if (refreshRes.success && refreshRes.data) {
+          setClasses(refreshRes.data);
+          if (drawerClass && drawerClass.id === editingClass.id) {
+            const updated = refreshRes.data.find(c => c.id === editingClass.id);
+            if (updated) setDrawerClass(updated);
+          }
+        }
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể cập nhật lớp. Vui lòng kiểm tra lại.', 'danger');
+    } finally {
+      setSavingClass(false);
+    }
+  };
+
+  const openEditScheduleModal = (cls) => {
+    setEditingScheduleClass(cls);
+    const currentSchedules = Array.isArray(cls.schedules) && cls.schedules.length > 0
+      ? cls.schedules.map(s => ({
+          day_of_week: String(s.day_of_week || 2),
+          start_period: Number(s.start_period || 1),
+          total_periods: Number(s.total_periods || 3),
+          room_id: String(s.room_id || ''),
+          week_from: Number(s.week_from || 1),
+          week_to: Number(s.week_to || 16)
+        }))
+      : [{
+          day_of_week: '2',
+          start_period: 1,
+          total_periods: 3,
+          room_id: rooms[0]?.id ? String(rooms[0].id) : '',
+          week_from: 1,
+          week_to: 16
+        }];
+    setSchedulesList(currentSchedules);
+    setShowEditScheduleModal(true);
+  };
+
+  const handleAddScheduleSession = () => {
+    setSchedulesList(prev => [
+      ...prev,
+      {
+        day_of_week: '4',
+        start_period: 1,
+        total_periods: 3,
+        room_id: rooms[0]?.id ? String(rooms[0].id) : '',
+        week_from: 1,
+        week_to: 16
+      }
+    ]);
+  };
+
+  const handleRemoveScheduleSession = (index) => {
+    if (schedulesList.length <= 1) {
+      notify('Lớp học phần phải có ít nhất một buổi học.', 'warning');
+      return;
+    }
+    setSchedulesList(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateScheduleItem = (index, field, value) => {
+    setSchedulesList(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const handleSaveSchedule = async (e) => {
+    e.preventDefault();
+    if (savingSchedule || !editingScheduleClass) return;
+
+    for (const s of schedulesList) {
+      if (!s.room_id) {
+        notify('Vui lòng chọn phòng học cho tất cả các buổi học.', 'warning');
+        return;
+      }
+    }
+
+    setSavingSchedule(true);
+    try {
+      const payload = {
+        schedules: schedulesList.map(s => ({
+          day_of_week: Number(s.day_of_week),
+          start_period: Number(s.start_period),
+          total_periods: Number(s.total_periods),
+          room_id: Number(s.room_id),
+          week_from: Number(s.week_from),
+          week_to: Number(s.week_to)
+        }))
+      };
+      const res = await axiosClient.put(`/admin/classes/${editingScheduleClass.id}/schedule`, payload);
+      if (res.success) {
+        notify(res.message || 'Đã cập nhật lịch học và phòng học thành công!', 'success');
+        setShowEditScheduleModal(false);
+        const refreshRes = await axiosClient.get('/admin/classes');
+        if (refreshRes.success && refreshRes.data) {
+          setClasses(refreshRes.data);
+          if (drawerClass && drawerClass.id === editingScheduleClass.id) {
+            const updated = refreshRes.data.find(c => c.id === editingScheduleClass.id);
+            if (updated) setDrawerClass(updated);
+          }
+        }
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể cập nhật lịch học. Kiểm tra xung đột phòng hoặc giảng viên.', 'danger');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     return classes.filter(c => {
       const matchSearch = !search ||
@@ -427,13 +573,24 @@ export default function ManageClasses() {
                     </Table.Td>
 
                     <Table.Td align="right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDrawer(cls)}
-                      >
-                        Chi tiết
-                      </Button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        {cls.status !== 'CANCELLED' && !cls.grades_locked && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditClassModal(cls)}
+                          >
+                            Phân công
+                          </Button>
+                        )}
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => openDrawer(cls)}
+                        >
+                          Chi tiết
+                        </Button>
+                      </div>
                     </Table.Td>
                   </Table.Tr>
                 );
@@ -542,6 +699,16 @@ export default function ManageClasses() {
                       Thao tác điều hành lớp
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                      {drawerClass.status !== 'CANCELLED' && !drawerClass.grades_locked && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => openEditClassModal(drawerClass)}
+                        >
+                          Phân công giảng viên & Sĩ số
+                        </Button>
+                      )}
+
                       <Button
                         variant={drawerClass.status === 'OPEN' ? 'outline' : 'primary'}
                         size="sm"
@@ -585,9 +752,20 @@ export default function ManageClasses() {
 
               {drawerTab === 'schedules' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
-                    Lịch học định kỳ trong tuần
-                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
+                      Lịch học định kỳ trong tuần
+                    </h3>
+                    {drawerClass.status !== 'CANCELLED' && !drawerClass.grades_locked && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => openEditScheduleModal(drawerClass)}
+                      >
+                        Điều chỉnh lịch & Phòng học
+                      </Button>
+                    )}
+                  </div>
                   {Array.isArray(drawerClass.schedules) && drawerClass.schedules.length > 0 ? (
                     drawerClass.schedules.map((s, idx) => (
                       <div
@@ -917,6 +1095,219 @@ export default function ManageClasses() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={showEditClassModal}
+        onClose={() => setShowEditClassModal(false)}
+        title={`Phân công giảng viên & Cập nhật lớp · ${editingClass?.class_code || ''}`}
+        size="md"
+      >
+        <form onSubmit={handleSaveClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Mã lớp học phần *
+            </label>
+            <Input
+              value={editClassForm.class_code}
+              onChange={e => setEditClassForm({ ...editClassForm, class_code: e.target.value })}
+              required
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Giảng viên phụ trách
+            </label>
+            <Select
+              value={editClassForm.lecturer_id}
+              onChange={e => setEditClassForm({ ...editClassForm, lecturer_id: e.target.value })}
+              options={[
+                { value: '', label: 'Chưa phân công' },
+                ...lecturers.map(l => ({ value: String(l.id), label: `${l.lecturer_code} - ${l.full_name}` }))
+              ]}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+              Sĩ số tối đa * (Hiện có {editingClass?.current_students || 0} SV)
+            </label>
+            <Input
+              type="number"
+              min={editingClass?.current_students || 1}
+              max="1000"
+              value={editClassForm.max_students}
+              onChange={e => setEditClassForm({ ...editClassForm, max_students: e.target.value })}
+              required
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowEditClassModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={savingClass}>
+              Lưu thay đổi
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showEditScheduleModal}
+        onClose={() => setShowEditScheduleModal(false)}
+        title={`Điều chỉnh thời khóa biểu & Phòng học · ${editingScheduleClass?.class_code || ''}`}
+        size="lg"
+      >
+        <form onSubmit={handleSaveSchedule} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {schedulesList.map((sched, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: '16px',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-3)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: '650', color: 'var(--color-text-primary)' }}>
+                    Buổi học #{idx + 1}
+                  </span>
+                  {schedulesList.length > 1 && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleRemoveScheduleSession(idx)}
+                    >
+                      Xóa buổi này
+                    </Button>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)' }}>
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Thứ trong tuần *
+                    </label>
+                    <Select
+                      value={sched.day_of_week}
+                      onChange={e => handleUpdateScheduleItem(idx, 'day_of_week', e.target.value)}
+                      options={[
+                        { value: '2', label: 'Thứ Hai' },
+                        { value: '3', label: 'Thứ Ba' },
+                        { value: '4', label: 'Thứ Tư' },
+                        { value: '5', label: 'Thứ Năm' },
+                        { value: '6', label: 'Thứ Sáu' },
+                        { value: '7', label: 'Thứ Bảy' },
+                        { value: '8', label: 'Chủ Nhật' }
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Tiết bắt đầu (1-12) *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="12"
+                      value={sched.start_period}
+                      onChange={e => handleUpdateScheduleItem(idx, 'start_period', e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Số tiết học *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="6"
+                      value={sched.total_periods}
+                      onChange={e => handleUpdateScheduleItem(idx, 'total_periods', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--space-3)' }}>
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Phòng học *
+                    </label>
+                    <Select
+                      value={sched.room_id}
+                      onChange={e => handleUpdateScheduleItem(idx, 'room_id', e.target.value)}
+                      required
+                      options={[
+                        { value: '', label: 'Chọn phòng học...' },
+                        ...rooms.filter(r => r.status === 'ACTIVE').map(r => ({
+                          value: String(r.id),
+                          label: `${r.room_code || r.label} (${r.room_name || 'Phòng học'} - ${r.capacity} chỗ)`
+                        }))
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Từ tuần *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="53"
+                      value={sched.week_from}
+                      onChange={e => handleUpdateScheduleItem(idx, 'week_from', e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                      Đến tuần *
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="53"
+                      value={sched.week_to}
+                      onChange={e => handleUpdateScheduleItem(idx, 'week_to', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddScheduleSession}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              + Thêm buổi học trong tuần
+            </Button>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            <Button variant="outline" size="md" onClick={() => setShowEditScheduleModal(false)}>
+              Hủy
+            </Button>
+            <Button variant="primary" size="md" loading={savingSchedule}>
+              Lưu lịch học
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
