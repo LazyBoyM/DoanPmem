@@ -22,7 +22,7 @@ const titles = {
 };
 
 export default function Topbar({ menuOpen, onMenuToggle }) {
-    const { semester, period, loading, error } = useAcademic();
+    const { semester, period, registrationStatus, loading } = useAcademic();
     const { pathname } = useLocation();
     return <header className="app-topbar">
         <div className="topbar-location">
@@ -35,9 +35,9 @@ export default function Topbar({ menuOpen, onMenuToggle }) {
                 <span>{semester?.semester_name || 'Học kỳ chính'}</span>
             </span>
             {pathname === '/student/registration' && (
-                <span className={`portal-status-tag ${period && !error && !loading ? 'is-open' : ''}`}>
+                <span className={`portal-status-tag ${period ? 'is-open' : ''}`}>
                     <span className="status-dot" />
-                    <span>{loading ? 'Đang tải' : error ? 'Chưa rõ trạng thái' : period ? 'Đăng ký đang mở' : 'Đăng ký đã đóng'}</span>
+                    <span>{loading ? 'Đang tải' : registrationStatus.label}</span>
                 </span>
             )}
         </div>

@@ -3,12 +3,16 @@ import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 import ClassSchedule from '../../components/ClassSchedule';
+import RegistrationStatusBadge from '../../components/RegistrationStatusBadge';
+import { useAcademic } from '../../context/academic-context';
+import { registrationStates } from '../../utils/registrationStatus';
 import { Button, Input, Select, Badge, Table, Skeleton, EmptyState } from '../../components/ui';
 
 const letters = ['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'];
 const count = value => Number(value || 0).toLocaleString('vi-VN');
 
 export default function AdminDashboard() {
+  const { registrationStatusFor } = useAcademic();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [downloadError, setDownloadError] = useState('');
@@ -55,7 +59,7 @@ export default function AdminDashboard() {
   const allClasses = report?.classOccupancy || [];
 
   const filtered = allClasses
-    .filter(c => (!status || c.status === status) &&
+    .filter(c => (!status || registrationStatusFor(c).code === status) &&
       `${c.subject_name} ${c.class_code} ${c.lecturer_name}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortAsc ? a.current_students - b.current_students : b.current_students - a.current_students);
 
@@ -292,8 +296,7 @@ export default function AdminDashboard() {
                 aria-label="Lọc trạng thái lớp"
                 options={[
                   { value: '', label: 'Tất cả trạng thái' },
-                  { value: 'OPEN', label: 'Đang mở' },
-                  { value: 'CLOSED', label: 'Đã đóng' }
+                  ...Object.values(registrationStates).map(state => ({ value: state.code, label: state.label }))
                 ]}
               />
             </div>
@@ -364,13 +367,7 @@ export default function AdminDashboard() {
                       </Table.Td>
 
                       <Table.Td align="right">
-                        <Badge
-                          variant={c.status === 'OPEN' ? 'success' : 'neutral'}
-                          size="sm"
-                          dot
-                        >
-                          {c.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
-                        </Badge>
+                        <RegistrationStatusBadge classInfo={c} />
                       </Table.Td>
                     </Table.Tr>
                   );

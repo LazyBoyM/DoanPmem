@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useFeedback } from '../../context/feedback-context';
+import RegistrationStatusBadge from '../../components/RegistrationStatusBadge';
 import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 
 export default function ManageSubjects() {
@@ -494,9 +495,7 @@ export default function ManageSubjects() {
                           <Table.Td>{cls.lecturer_name || 'Chưa phân công'}</Table.Td>
                           <Table.Td>{cls.current_students} / {cls.max_students}</Table.Td>
                           <Table.Td align="right">
-                            <Badge variant={cls.status === 'OPEN' ? 'success' : 'neutral'} size="sm">
-                              {cls.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
-                            </Badge>
+                            <RegistrationStatusBadge classInfo={cls} />
                           </Table.Td>
                         </Table.Tr>
                       ))}

@@ -2,6 +2,7 @@ const { endpoint, fail } = require('../services/store');
 const { integer, requireRow, checkClassAccess } = require('../services/academic');
 const { transcript, transcriptsForStudents } = require('../services/transcript');
 const { convertGrade } = require('../services/scheduleConflictService');
+const { recordAudit, gradeValues } = require('../services/audit');
 
 async function visibleStudentIds(req, store) {
     if (req.user.role === 'ADMIN') return null;
@@ -74,6 +75,10 @@ const recordResit = endpoint(async (req, store) => {
     const converted = convertGrade(Number(g.attendance_score), Number(g.midterm_score), final);
     await store.update('grades', g.id, { final_score: final, total_score_10: converted.total10, total_score_4: converted.total4, letter_grade: converted.letter });
     await store.update('resit_attempts', attempt.id, { status: 'COMPLETED', score, recorded_by: req.user.id, recorded_at: new Date() });
+    await recordAudit(store, req.user, 'RESIT', 'grades', g.id, {
+        operation: 'Lưu điểm thi lại', class_code: cls.class_code, enrollment_id: enrollment.id, resit_score: score,
+        before: gradeValues(g), after: gradeValues({ ...g, final_score: final, total_score_10: converted.total10, total_score_4: converted.total4, letter_grade: converted.letter })
+    });
     return { message: 'Đã lưu điểm thi lại và cập nhật kết quả học phần.' };
 }, true);
 module.exports = { getStudents, getTranscript, requestResit, recordResit };

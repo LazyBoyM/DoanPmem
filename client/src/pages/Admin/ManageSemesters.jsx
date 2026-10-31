@@ -4,49 +4,12 @@ import { useAcademic } from '../../context/academic-context';
 import { useFeedback } from '../../context/feedback-context';
 import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 import RegistrationPlans from '../../components/RegistrationPlans';
+import { getPeriodStatus } from '../../utils/registrationStatus';
 import { CurriculumEditor } from '../../components/TrainingEditor';
-
-function getPeriodStatus(rp) {
-  if (Number(rp.is_active) !== 1) {
-    return {
-      label: 'ĐÃ TẮT',
-      variant: 'neutral',
-      detail: 'Đã tắt thủ công'
-    };
-  }
-  const parse = (val) => {
-    if (!val) return new Date(NaN);
-    const raw = String(val).replace(' ', 'T');
-    return new Date(/Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw.length === 10 ? `${raw}T00:00:00+07:00` : `${raw}+07:00`);
-  };
-  const now = new Date();
-  const start = parse(rp.start_time);
-  const end = parse(rp.end_time);
-
-  if (now < start) {
-    return {
-      label: 'CHƯA TỚI HẠN',
-      variant: 'warning',
-      detail: 'Chưa tới giờ mở cổng'
-    };
-  }
-  if (now > end) {
-    return {
-      label: 'ĐÃ HẾT HẠN',
-      variant: 'danger',
-      detail: 'Tự động đóng cổng'
-    };
-  }
-  return {
-    label: 'ĐANG MỞ CỔNG',
-    variant: 'success',
-    detail: 'Đang tiếp nhận đăng ký'
-  };
-}
 
 export default function ManageSemesters() {
   const { notify } = useFeedback();
-  const { refresh } = useAcademic();
+  const { refresh, now } = useAcademic();
 
   const [activeTab, setActiveTab] = useState('periods');
   const [semesters, setSemesters] = useState([]);
@@ -264,7 +227,7 @@ export default function ManageSemesters() {
               </Table.Thead>
               <Table.Tbody>
                 {periods.map(rp => {
-                  const status = getPeriodStatus(rp);
+                  const status = getPeriodStatus(rp, now);
                   return (
                     <Table.Tr key={rp.id}>
                       <Table.Td>
@@ -344,7 +307,7 @@ export default function ManageSemesters() {
                       <Badge variant="success">Học kỳ hiện hành</Badge>
                     ) : (
                       <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                        Đã đóng
+                        Không hiện hành
                       </span>
                     )}
                   </Table.Td>

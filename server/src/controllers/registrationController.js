@@ -11,7 +11,7 @@ const getContext = endpoint(async (req, store) => {
     ]);
     const semesters = semesterRows.sort((a,b) => b.id-a.id);
     const program = student ? await store.one('programs', { id: student.program_id }) : null;
-    return { data: { semesters, periods: periods.map(p => ({ ...p, is_open: isPeriodOpen(p) })), activeSemester: semesters.find(s => s.is_active === 1) || null, program } };
+    return { data: { semesters, periods: periods.map(p => ({ ...p, is_open: isPeriodOpen(p) })), activeSemester: semesters.find(s => s.is_active === 1) || null, program, server_time: new Date().toISOString() } };
 });
 const classFilter = req => req.query?.semester_id ? { semester_id: integer(req.query.semester_id, 'Học kỳ') } : {};
 const getAllClasses = endpoint(async (req, store) => ({ data: await classesWithDetails(store, undefined, classFilter(req)) }));

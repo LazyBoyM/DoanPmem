@@ -278,7 +278,7 @@ export default function LecturerDashboard() {
                         {c.class_code}
                       </span>
                       <Badge variant={isClassLocked ? 'danger' : 'success'} size="sm">
-                        {isClassLocked ? 'Đã khóa' : 'Mở'}
+                        {isClassLocked ? 'Đã khóa điểm' : 'Mở nhập điểm'}
                       </Badge>
                     </div>
                     <strong style={{ fontSize: 'var(--font-size-base)', color: isCurrent ? 'var(--color-accent-text)' : 'var(--color-text-primary)', marginTop: '4px' }}>

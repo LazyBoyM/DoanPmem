@@ -10,7 +10,7 @@ const isLocked = value => value === true || Number(value) === 1;
 
 export default function StudentDashboard() {
   const { confirm } = useFeedback();
-  const { semesterId, period, refresh } = useAcademic();
+  const { semesterId, period, registrationStatus, registrationStatusFor, refresh } = useAcademic();
   const navigate = useNavigate();
 
   const [data, setData] = useState({ openClasses: [], myEnrollments: [], submission: null });
@@ -93,7 +93,7 @@ export default function StudentDashboard() {
   }, [data.openClasses, search, filterSubject, seatFilter]);
 
   async function handleEnroll(classItem) {
-    if (busy || !period) return;
+    if (busy || registrationStatusFor(classItem).code !== 'OPEN') return;
     setBusy(true);
     setNotice(null);
     try {
@@ -128,6 +128,7 @@ export default function StudentDashboard() {
   }
 
   async function handleFinalSubmit() {
+    if (busy || !period || !isMinReached || isMaxExceeded || data.submission) return;
     setBusy(true);
     setNotice(null);
     try {
@@ -151,11 +152,7 @@ export default function StudentDashboard() {
             <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
               Đăng ký tín chỉ
             </h1>
-            {period ? (
-              <Badge variant="success">Đang mở</Badge>
-            ) : (
-              <Badge variant="neutral">Chưa mở</Badge>
-            )}
+            <Badge variant={registrationStatus.variant}>{registrationStatus.label}</Badge>
           </div>
         </div>
 
@@ -163,6 +160,8 @@ export default function StudentDashboard() {
           <SemesterSelect />
         </div>
       </div>
+
+      {!period && <p className="alert alert-secondary" role="status">{registrationStatus.label}. Bạn vẫn có thể xem danh mục và kế hoạch học tập; các thao tác đăng ký, hủy và chốt chỉ thực hiện trong thời hạn đợt đăng ký.</p>}
 
       {notice && (
         <div
@@ -259,7 +258,7 @@ export default function StudentDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
             <div>
               <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
-                Mục lục lớp học phần mở đăng ký
+                Danh mục lớp học phần
               </h2>
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
                 Hiển thị {filteredClasses.length} lớp học phần theo tiêu chí
@@ -396,10 +395,10 @@ export default function StudentDashboard() {
                           <Button
                             variant="primary"
                             size="sm"
-                            disabled={busy || !period}
+                            disabled={busy || registrationStatusFor(cls).code !== 'OPEN'}
                             onClick={() => handleEnroll(cls)}
                           >
-                            Đăng ký
+                            {registrationStatusFor(cls).code === 'OPEN' ? 'Đăng ký' : registrationStatusFor(cls).label}
                           </Button>
                         )}
                       </Table.Td>
@@ -610,6 +609,7 @@ export default function StudentDashboard() {
               size="md"
               loading={busy}
               onClick={handleFinalSubmit}
+              disabled={!period || !isMinReached || isMaxExceeded || Boolean(data.submission)}
             >
               Xác nhận chốt ngay
             </Button>

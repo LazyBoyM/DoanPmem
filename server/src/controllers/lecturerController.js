@@ -1,6 +1,7 @@
 const { endpoint, fail } = require('../services/store');
 const { requireRow, classesWithDetails, checkClassAccess, integer } = require('../services/academic');
 const { convertGrade } = require('../services/scheduleConflictService');
+const { recordAudit, gradeValues } = require('../services/audit');
 const emptyGrade = { attendance_score: null, midterm_score: null, final_score: null, total_score_10: null, total_score_4: null, letter_grade: null, is_locked: 0 };
 async function visibleClasses(req, store) {
     const filter = req.user.role === 'ADMIN' ? {} : { lecturer_id: req.user.lecturer_id };
@@ -47,7 +48,13 @@ const updateGrades = endpoint(async (req, store) => {
     }
     const { total10, total4, letter } = convertGrade(...scores);
     const data = { enrollment_id: enrollment.id, attendance_score: scores[0], midterm_score: scores[1], final_score: scores[2], total_score_10: total10, total_score_4: total4, letter_grade: letter, is_locked: 0 };
-    if (existing) await store.update('grades', existing.id, data); else await store.insert('grades', data);
+    let gradeId = existing?.id;
+    if (existing) await store.update('grades', existing.id, data);
+    else gradeId = (await store.insert('grades', data)).id;
+    await recordAudit(store, req.user, existing ? 'UPDATE' : 'CREATE', 'grades', gradeId, {
+        operation: 'Lưu điểm', class_code: cls.class_code, enrollment_id: enrollment.id,
+        before: gradeValues(existing), after: gradeValues(data)
+    });
     return { data, message: 'Đã lưu điểm.' };
 }, true);
 const lockGrades = endpoint(async (req, store) => {
@@ -61,6 +68,10 @@ const lockGrades = endpoint(async (req, store) => {
         if (grade) await store.update('grades', grade.id, { is_locked });
         else await store.insert('grades', { ...emptyGrade, enrollment_id: enrollment.id, is_locked });
     }
+    await recordAudit(store, req.user, 'UPDATE', 'course_classes', cls.id, {
+        operation: is_locked ? 'Khóa bảng điểm' : 'Mở khóa bảng điểm', class_code: cls.class_code,
+        before: { grades_locked: Number(cls.grades_locked || 0) }, after: { grades_locked: is_locked }
+    });
     return { message: is_locked ? 'Đã khóa bảng điểm.' : 'Đã mở khóa bảng điểm.' };
 }, true);
 module.exports = { getMyClasses, getLecturerTimetable, getClassStudents, updateGrades, lockGrades };

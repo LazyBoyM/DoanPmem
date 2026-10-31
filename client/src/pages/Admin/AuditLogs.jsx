@@ -1,6 +1,22 @@
 import { useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { Button, Input, Select, Badge, Table, Modal, Skeleton, EmptyState } from '../../components/ui';
+import { registrationTime } from '../../utils/registrationStatus';
+
+const auditTime = value => Number.isFinite(registrationTime(value)) ? new Date(registrationTime(value)).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : value;
+
+function describeAudit(raw, full = false) {
+  try {
+    const detail = JSON.parse(raw);
+    if (!detail.operation) return raw;
+    const summary = `${detail.operation} · Lớp ${detail.class_code}${detail.enrollment_id ? ` · Đăng ký #${detail.enrollment_id}` : ''}`;
+    if (!full) return summary;
+    const labels = { attendance_score: 'Chuyên cần', midterm_score: 'Giữa kỳ', final_score: 'Cuối kỳ', total_score_10: 'Tổng kết hệ 10', total_score_4: 'Tổng kết hệ 4', letter_grade: 'Điểm chữ', grades_locked: 'Khóa điểm (0: mở, 1: khóa)' };
+    const changes = Object.entries(detail.after || {}).map(([key, value]) => `${labels[key] || key}: ${detail.before?.[key] ?? 'Chưa có'} → ${value ?? 'Chưa có'}`);
+    if (detail.resit_score != null) changes.push(`Điểm thi lại: ${detail.resit_score}`);
+    return [summary, ...changes].join('\n');
+  } catch { return raw; }
+}
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
@@ -179,7 +195,7 @@ export default function AuditLogs() {
                 <Table.Tr key={log.id} onClick={() => setSelectedLog(log)}>
                   <Table.Td>
                     <span className="tabular-nums" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
-                      {log.created_at}
+                      {auditTime(log.created_at)}
                     </span>
                   </Table.Td>
 
@@ -206,7 +222,7 @@ export default function AuditLogs() {
 
                   <Table.Td>
                     <span style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)' }}>
-                      {log.detail}
+                      {describeAudit(log.detail)}
                     </span>
                   </Table.Td>
 
@@ -249,7 +265,7 @@ export default function AuditLogs() {
         open={Boolean(selectedLog)}
         onClose={() => setSelectedLog(null)}
         title="Chi tiết vết thay đổi dữ liệu"
-        description={`Mã nhật ký: #${selectedLog?.id} · Ghi nhận lúc ${selectedLog?.created_at}`}
+        description={`Mã nhật ký: #${selectedLog?.id} · Ghi nhận lúc ${auditTime(selectedLog?.created_at)}`}
         size="md"
         footer={
           <Button variant="primary" size="sm" onClick={() => setSelectedLog(null)}>
@@ -293,8 +309,8 @@ export default function AuditLogs() {
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
                 Diễn giải chi tiết
               </span>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', lineHeight: 1.6 }}>
-                {selectedLog.detail}
+              <p style={{ margin: 0, fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {describeAudit(selectedLog.detail, true)}
               </p>
             </div>
           </div>

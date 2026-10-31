@@ -2,10 +2,14 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 import { useFeedback } from '../../context/feedback-context';
+import { useAcademic } from '../../context/academic-context';
+import RegistrationStatusBadge from '../../components/RegistrationStatusBadge';
+import { registrationStates } from '../../utils/registrationStatus';
 import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 
 export default function ManageClasses() {
   const { notify, confirm } = useFeedback();
+  const { registrationStatusFor } = useAcademic();
 
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -143,7 +147,7 @@ export default function ManageClasses() {
       const newStatus = cls.status === 'OPEN' ? 'CLOSED' : 'OPEN';
       const res = await axiosClient.put(`/admin/classes/${cls.id}/status`, { status: newStatus });
       if (res.success) {
-        notify(`Đã chuyển trạng thái lớp sang ${newStatus === 'OPEN' ? 'Đang mở' : 'Đã đóng'}.`, 'success');
+        notify(newStatus === 'OPEN' ? 'Đã cho phép lớp nhận đăng ký trong thời hạn đợt đăng ký.' : 'Đã đóng đăng ký riêng lớp này.', 'success');
         fetchClasses();
         if (drawerClass && drawerClass.id === cls.id) {
           setDrawerClass(prev => ({ ...prev, status: newStatus }));
@@ -223,7 +227,7 @@ export default function ManageClasses() {
   };
 
   const handleBatchEnroll = async () => {
-    if (!batchClass || !selectedAdminClass) return;
+    if (!batchClass || !selectedAdminClass || registrationStatusFor(batchClass).code !== 'OPEN') return;
     setBatchSubmitting(true);
     setBatchResult(null);
 
@@ -389,11 +393,11 @@ export default function ManageClasses() {
         `${c.class_code} ${c.subject_name} ${c.lecturer_name || ''}`.toLowerCase().includes(search.toLowerCase());
       const matchSemester = !filterSemester || String(c.semester_id) === filterSemester;
       const matchSubject = !filterSubject || String(c.subject_id) === filterSubject;
-      const matchStatus = !filterStatus || c.status === filterStatus;
+      const matchStatus = !filterStatus || registrationStatusFor(c).code === filterStatus;
       const matchLecturer = !filterLecturer || String(c.lecturer_id) === filterLecturer;
       return matchSearch && matchSemester && matchSubject && matchStatus && matchLecturer;
     });
-  }, [classes, search, filterSemester, filterSubject, filterStatus, filterLecturer]);
+  }, [classes, search, filterSemester, filterSubject, filterStatus, filterLecturer, registrationStatusFor]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', maxWidth: '1600px', margin: '0 auto' }}>
@@ -473,9 +477,7 @@ export default function ManageClasses() {
             aria-label="Lọc theo trạng thái"
             options={[
               { value: '', label: 'Tất cả trạng thái' },
-              { value: 'OPEN', label: 'Đang mở (OPEN)' },
-              { value: 'CLOSED', label: 'Đã đóng (CLOSED)' },
-              { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' }
+              ...Object.values(registrationStates).map(state => ({ value: state.code, label: state.label }))
             ]}
           />
         </div>
@@ -562,13 +564,7 @@ export default function ManageClasses() {
                     </Table.Td>
 
                     <Table.Td>
-                      {cls.status === 'OPEN' ? (
-                        <Badge variant="success">Đang mở</Badge>
-                      ) : cls.status === 'CLOSED' ? (
-                        <Badge variant="neutral">Đã đóng</Badge>
-                      ) : (
-                        <Badge variant="danger">Đã hủy</Badge>
-                      )}
+                      <RegistrationStatusBadge classInfo={cls} />
                     </Table.Td>
 
                     <Table.Td align="right">
@@ -631,11 +627,7 @@ export default function ManageClasses() {
                   <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: '650', color: 'var(--color-text-primary)', margin: 0 }}>
                     {drawerClass.class_code}
                   </h2>
-                  {drawerClass.status === 'OPEN' ? (
-                    <Badge variant="success">Đang mở</Badge>
-                  ) : (
-                    <Badge variant="neutral">{drawerClass.status}</Badge>
-                  )}
+                  <RegistrationStatusBadge classInfo={drawerClass} />
                 </div>
                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
                   {drawerClass.subject_name} ({drawerClass.credits} tín chỉ)
@@ -712,8 +704,9 @@ export default function ManageClasses() {
                         variant={drawerClass.status === 'OPEN' ? 'outline' : 'primary'}
                         size="sm"
                         onClick={() => toggleStatus(drawerClass)}
+                        disabled={drawerClass.status === 'CANCELLED' || Number(drawerClass.grades_locked) === 1}
                       >
-                        {drawerClass.status === 'OPEN' ? 'Đóng đăng ký lớp' : 'Mở lại đăng ký'}
+                        {drawerClass.status === 'OPEN' ? 'Đóng đăng ký riêng lớp' : 'Cho phép lớp nhận đăng ký'}
                       </Button>
 
                       <Button
@@ -723,6 +716,7 @@ export default function ManageClasses() {
                           setBatchClass(drawerClass);
                           setShowBatchModal(true);
                         }}
+                        disabled={registrationStatusFor(drawerClass).code !== 'OPEN'}
                       >
                         Xếp lớp theo đoàn
                       </Button>
@@ -745,6 +739,7 @@ export default function ManageClasses() {
                         </Button>
                       )}
                     </div>
+                    <p className="small text-muted mb-0">Lớp chỉ nhận đăng ký khi được cho phép, còn chỗ, chưa khóa điểm và đang trong thời hạn đợt đăng ký của học kỳ.</p>
                   </div>
                 </div>
               )}
@@ -1086,7 +1081,7 @@ export default function ManageClasses() {
             <Button
               variant="primary"
               size="md"
-              disabled={!selectedAdminClass}
+              disabled={!selectedAdminClass || !batchClass || registrationStatusFor(batchClass).code !== 'OPEN'}
               loading={batchSubmitting}
               onClick={handleBatchEnroll}
             >

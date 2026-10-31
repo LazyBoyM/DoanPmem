@@ -386,7 +386,8 @@ const getAdministrativeClasses = endpoint(async (_req, store) => {
 const batchEnrollClass = endpoint(async (req, store) => {
     await lockFacilities(store);
     const cls = await requireRow(store, 'course_classes', req.params.id, 'Lớp học phần');
-    if (cls.status === 'CANCELLED' || cls.grades_locked) fail('Lớp đã hủy hoặc khóa điểm không thể đăng ký.');
+    if (cls.status !== 'OPEN' || cls.grades_locked) fail('Lớp đã đóng đăng ký, hủy hoặc khóa điểm.');
+    if (!(await store.list('registration_periods', { semester_id: cls.semester_id })).some(p => isPeriodOpen(p))) fail('Học kỳ này không có đợt đăng ký đang mở.');
 
     let targetStudents = [];
     if (Array.isArray(req.body.student_ids) && req.body.student_ids.length > 0) {
@@ -534,13 +535,8 @@ const batchEnrollClass = endpoint(async (req, store) => {
     };
 }, true);
 const getAuditLogs = endpoint(async (_req, store) => {
-    try {
-        const logs = await store.list('audit_logs');
-        return { data: logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) };
-    } catch {
-        const db = require('../config/db');
-        return { data: (db.mockDb.audit_logs || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) };
-    }
+    const logs = await store.list('audit_logs');
+    return { data: logs.sort((a, b) => dateTime(b.created_at) - dateTime(a.created_at) || b.id - a.id) };
 });
 module.exports = { getDashboardStats, getAuditLogs, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
     getAllLecturers, createLecturer: createProfile(false), updateLecturer: updateProfile(false), deleteLecturer: deleteProfile(false), getAllSubjects, createSubject, updateSubject, deleteSubject,

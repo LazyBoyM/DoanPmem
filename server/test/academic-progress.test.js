@@ -54,6 +54,10 @@ test('resit request is single-use, scoped, audited and recalculates GPA and cred
     assert.equal(mockDb.resit_attempts[0].original_final_score, 1);
     assert.equal(mockDb.resit_attempts[0].original_total_score, 2.6);
     assert.equal(mockDb.resit_attempts[0].recorded_by, 2);
+    const audit = mockDb.audit_logs.at(-1);
+    assert.equal(audit.action, 'RESIT');
+    assert.equal(audit.user_id, 2);
+    assert.equal(JSON.parse(audit.detail).resit_score, 8);
     const report = (await call('/registration/grades', '74dctt25001')).data;
     assert.equal(report.failed_subjects, 0); assert.equal(report.cumulative.passedCredits, 3);
     assert.equal(report.data.find(e => e.enrollment_id === 1).grade.total_score_10, 6.8);
