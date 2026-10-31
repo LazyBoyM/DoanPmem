@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
-import { Button, Input, Select, Badge, Table, Modal, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Skeleton, EmptyState } from '../../components/ui';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
@@ -158,7 +158,6 @@ export default function AuditLogs() {
             </div>
           </div>
 
-          <DensityToggle />
         </div>
 
         {loading ? (

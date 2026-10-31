@@ -3,7 +3,7 @@ import { useAcademic } from '../../context/academic-context';
 import { useFeedback } from '../../context/feedback-context';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
-import { Button, Input, Select, Badge, Table, Modal, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Skeleton, EmptyState } from '../../components/ui';
 import { scoreFields, scoreLabels, scoreWeights, hasGradeChanges, invalidGrade, gradePayload, mergeSavedGrade } from './gradeBook';
 
 const locked = value => Number(value) === 1;
@@ -356,7 +356,6 @@ export default function LecturerDashboard() {
                 aria-label="Tìm kiếm sinh viên trong bảng điểm"
               />
             </div>
-            <DensityToggle />
           </div>
 
           {studentLoading ? (

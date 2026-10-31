@@ -87,25 +87,10 @@
   --color-info-border: #BFDBFE;
   --color-info-text: #1E40AF;
 
-  --table-py: 14px;
-  --table-px: 18px;
-  --table-font-size: 14.5px;
-  --table-btn-h: 36px;
-}
-
-
-[data-density="compact"] {
   --table-py: 10px;
   --table-px: 14px;
   --table-font-size: 14px;
   --table-btn-h: 32px;
-}
-
-[data-density="comfortable"] {
-  --table-py: 15px;
-  --table-px: 20px;
-  --table-font-size: 15px;
-  --table-btn-h: 38px;
 }
 
 .tabular-nums {

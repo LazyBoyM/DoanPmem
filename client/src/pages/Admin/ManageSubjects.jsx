@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useFeedback } from '../../context/feedback-context';
-import { Button, Input, Select, Badge, Table, Modal, Tabs, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 
 export default function ManageSubjects() {
   const { notify, confirm } = useFeedback();
@@ -253,7 +253,6 @@ export default function ManageSubjects() {
                 </Button>
               </div>
             )}
-            <DensityToggle />
           </div>
         </div>
 

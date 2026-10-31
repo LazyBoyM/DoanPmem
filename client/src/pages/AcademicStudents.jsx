@@ -4,7 +4,7 @@ import { useAuth } from '../context/auth-context';
 import { useAcademic } from '../context/academic-context';
 import axiosClient from '../api/axiosClient';
 import AcademicTranscript from '../components/AcademicTranscript';
-import { Button, Input, Select, Badge, Table, DensityToggle, Skeleton, EmptyState } from '../components/ui';
+import { Button, Input, Select, Badge, Table, Skeleton, EmptyState } from '../components/ui';
 
 export default function AcademicStudents() {
   const { user } = useAuth();
@@ -219,7 +219,6 @@ export default function AcademicStudents() {
             </div>
           </div>
 
-          <DensityToggle />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px solid var(--color-border-subtle)' }}>

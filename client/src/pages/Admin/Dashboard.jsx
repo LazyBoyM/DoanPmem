@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 import ClassSchedule from '../../components/ClassSchedule';
-import { Button, Input, Select, Badge, Table, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Skeleton, EmptyState } from '../../components/ui';
 
 const letters = ['A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'F'];
 const count = value => Number(value || 0).toLocaleString('vi-VN');
@@ -256,7 +256,6 @@ export default function AdminDashboard() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <DensityToggle />
               <Link
                 to="/admin/classes"
                 style={{

@@ -7,4 +7,3 @@ export { default as Modal } from './Modal';
 export { default as Tabs } from './Tabs';
 export { default as EmptyState } from './EmptyState';
 export { default as Skeleton } from './Skeleton';
-export { default as DensityToggle } from './DensityToggle';

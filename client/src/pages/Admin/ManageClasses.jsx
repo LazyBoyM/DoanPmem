@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { downloadFile } from '../../api/download';
 import { useFeedback } from '../../context/feedback-context';
-import { Button, Input, Select, Badge, Table, Modal, Tabs, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 
 export default function ManageClasses() {
   const { notify, confirm } = useFeedback();
@@ -422,7 +422,6 @@ export default function ManageClasses() {
             </span>
             <Badge variant="neutral">{filtered.length} lớp</Badge>
           </div>
-          <DensityToggle />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-2)' }}>

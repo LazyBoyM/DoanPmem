@@ -4,7 +4,7 @@ import axiosClient from '../../api/axiosClient';
 import { useAcademic } from '../../context/academic-context';
 import { useFeedback } from '../../context/feedback-context';
 import SemesterSelect from '../../components/SemesterSelect';
-import { Button, Input, Select, Badge, Table, Modal, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Skeleton, EmptyState } from '../../components/ui';
 
 const isLocked = value => value === true || Number(value) === 1;
 
@@ -265,7 +265,6 @@ export default function StudentDashboard() {
                 Hiển thị {filteredClasses.length} lớp học phần theo tiêu chí
               </span>
             </div>
-            <DensityToggle />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>

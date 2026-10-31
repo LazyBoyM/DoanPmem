@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useAcademic } from '../../context/academic-context';
 import { useFeedback } from '../../context/feedback-context';
-import { Button, Input, Select, Badge, Table, Modal, Tabs, DensityToggle, Skeleton, EmptyState } from '../../components/ui';
+import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 import RegistrationPlans from '../../components/RegistrationPlans';
 import { CurriculumEditor } from '../../components/TrainingEditor';
 
@@ -235,7 +235,6 @@ export default function ManageSemesters() {
           activeTab={activeTab}
           onChange={setActiveTab}
         />
-        <DensityToggle />
       </div>
 
       {loading ? (
