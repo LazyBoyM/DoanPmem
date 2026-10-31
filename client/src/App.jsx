@@ -7,6 +7,7 @@ import { useAuth } from './context/auth-context';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import DataLoadingPopup, { LoadingPopup } from './components/LoadingPopup';
+import OperationProgress from './components/OperationProgress';
 
 const Login = lazy(() => import('./pages/Login'));
 const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
@@ -95,6 +96,7 @@ function App() {
             <FeedbackProvider>
             <AppRoutes />
             <DataLoadingPopup />
+            <OperationProgress />
         </FeedbackProvider>
         </AuthProvider>
     );

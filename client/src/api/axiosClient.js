@@ -15,6 +15,7 @@ axiosClient.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
         if (config.method === 'get') config.finishLoading = beginLoading();
+        else if (['post', 'put', 'patch', 'delete'].includes(config.method)) config.finishLoading = beginLoading(true);
         return config;
     },
     (error) => {

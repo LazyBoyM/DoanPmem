@@ -1,0 +1,38 @@
+.operation-progress {
+    position: fixed;
+    inset: auto 24px 24px auto;
+    z-index: 1250;
+    width: min(360px, calc(100vw - 32px));
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-modal);
+    overflow: hidden;
+    pointer-events: none;
+}
+.operation-progress-copy { display: grid; gap: 6px; padding: 18px 20px; }
+.operation-progress-copy strong { font-size: var(--font-size-sm); }
+.operation-progress-copy > span { color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.operation-progress-track { height: 4px; overflow: hidden; background: var(--color-surface-active); }
+.operation-progress-track > span {
+    display: block;
+    width: 40%;
+    height: 100%;
+    background: var(--color-gold);
+    animation: operation-progress-slide 1.3s ease-in-out infinite;
+}
+body:has(.operation-progress) .feedback-notice { bottom: 144px; }
+@keyframes operation-progress-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(350%); }
+}
+@media (max-width: 575px) {
+    .operation-progress { right: 16px; bottom: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .operation-progress-track > span { width: 100%; animation: none; }
+}
