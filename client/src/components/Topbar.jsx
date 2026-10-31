@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useAcademic } from '../context/academic-context';
 import { useLocation } from 'react-router-dom';
 
@@ -25,17 +24,6 @@ const titles = {
 export default function Topbar({ menuOpen, onMenuToggle }) {
     const { semester, period, loading, error } = useAcademic();
     const { pathname } = useLocation();
-    const [theme, setTheme] = useState(() => localStorage.getItem('eduportal_theme') || 'dark');
-
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('eduportal_theme', theme);
-    }, [theme]);
-
-    const toggleTheme = () => {
-        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    };
-
     return <header className="app-topbar">
         <div className="topbar-location">
             <button className="icon-button mobile-menu-toggle" onClick={onMenuToggle} aria-label="Mở menu điều hướng" aria-expanded={menuOpen} aria-controls="app-navigation"><i aria-hidden="true" className="bi bi-list" /></button>
@@ -52,14 +40,6 @@ export default function Topbar({ menuOpen, onMenuToggle }) {
                     <span>{loading ? 'Đang tải' : error ? 'Chưa rõ trạng thái' : period ? 'Đăng ký đang mở' : 'Đăng ký đã đóng'}</span>
                 </span>
             )}
-            <button
-                className="icon-button theme-toggle-btn"
-                aria-label="Chuyển đổi giao diện sáng tối"
-                title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
-                onClick={toggleTheme}
-            >
-                <i className={`bi ${theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-stars-fill'}`} aria-hidden="true" />
-            </button>
         </div>
     </header>;
 }
