@@ -27,9 +27,11 @@ async function requireRow(store, table, id, label = 'Dữ liệu') {
 }
 async function classesWithDetails(store, ids, filter = {}) {
     const classes = ids ? await store.related('course_classes', 'id', ids) : await store.list('course_classes', filter);
-    const subjects = await store.related('subjects', 'id', classes.map(c => c.subject_id));
-    const lecturers = await store.related('lecturers', 'id', classes.map(c => c.lecturer_id).filter(Boolean));
-    const schedules = await store.related('class_schedules', 'course_class_id', classes.map(c => c.id));
+    const [subjects, lecturers, schedules] = await Promise.all([
+        store.related('subjects', 'id', classes.map(c => c.subject_id)),
+        store.related('lecturers', 'id', classes.map(c => c.lecturer_id).filter(Boolean)),
+        store.related('class_schedules', 'course_class_id', classes.map(c => c.id))
+    ]);
     const rooms = await store.related('rooms', 'id', schedules.map(s => s.room_id).filter(Boolean));
     const buildings = await store.related('buildings', 'id', rooms.map(r => r.building_id));
     const roomById = new Map(rooms.map(r => [r.id, r]));

@@ -4,9 +4,12 @@ const { checkScheduleConflicts } = require('../services/scheduleConflictService'
 const { transcript } = require('../services/transcript');
 const semesterFilter = (req, rows) => req.query?.semester_id ? rows.filter(c => c.semester_id === integer(req.query.semester_id, 'Học kỳ')) : rows;
 const getContext = endpoint(async (req, store) => {
-    const semesters = (await store.list('semesters')).sort((a,b) => b.id-a.id);
-    const periods = await store.list('registration_periods');
-    const student = req.user.student_id ? await store.one('students', { id: req.user.student_id }) : null;
+    const [semesterRows, periods, student] = await Promise.all([
+        store.list('semesters'),
+        store.list('registration_periods'),
+        req.user.student_id ? store.one('students', { id: req.user.student_id }) : null
+    ]);
+    const semesters = semesterRows.sort((a,b) => b.id-a.id);
     const program = student ? await store.one('programs', { id: student.program_id }) : null;
     return { data: { semesters, periods: periods.map(p => ({ ...p, is_open: isPeriodOpen(p) })), activeSemester: semesters.find(s => s.is_active === 1) || null, program } };
 });

@@ -73,3 +73,40 @@ test('class queries filter semester, open status and lecturer before loading rel
         assert.equal(queries.length, 1);
     });
 });
+
+test('batched transcripts match individual reports, including semester filters and empty enrollments', async () => {
+    const { transcript, transcriptsForStudents } = require('../src/services/transcript');
+    const store = readStore();
+    const students = await store.list('students');
+    for (const semesterId of [undefined, 1, 999]) {
+        const expected = await Promise.all(students.map(s => transcript(store, s.id, semesterId)));
+        await sqlFixture(async () => {
+            assert.deepEqual(await transcriptsForStudents(readStore(), students, semesterId), expected);
+        });
+    }
+    assert.deepEqual(await transcriptsForStudents(store, []), []);
+});
+
+test('academic directory query count stays constant as the number of students grows', async () => {
+    const handler = require('../src/controllers/academicController').getStudents;
+    const original = db.mockDb.students;
+    const originalEnrollments = db.mockDb.enrollments;
+    try {
+        let initialCount;
+        await sqlFixture(async queries => {
+            const result = await invoke(handler, { user: { role: 'ADMIN' }, query: {} });
+            assert.equal(result.data.length, original.length);
+            initialCount = queries.length;
+            assert.ok(initialCount <= 12);
+        });
+        db.mockDb.students = [...original, ...Array.from({ length: 50 }, (_, index) => ({ ...original[0], id: 1000 + index }))];
+        db.mockDb.enrollments = [...originalEnrollments, ...Array.from({ length: 50 }, (_, index) => ({ ...originalEnrollments[0], id: 1000 + index, student_id: 1000 + index }))];
+        await sqlFixture(async queries => {
+            const result = await invoke(handler, { user: { role: 'ADMIN' }, query: {} });
+            assert.equal(result.data.length, original.length + 50);
+            assert.equal(queries.length, initialCount);
+            assert.equal(result.data.at(-1).gpa4, '0.00');
+            assert.equal(result.data.at(-1).passed_credits, 0);
+        });
+    } finally { db.mockDb.students = original; db.mockDb.enrollments = originalEnrollments; }
+});

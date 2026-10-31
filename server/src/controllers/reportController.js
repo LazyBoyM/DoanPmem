@@ -1,10 +1,10 @@
-const xlsx = require('xlsx');
 const { endpoint, readStore } = require('../services/store');
 const { requireRow, classesWithDetails, checkClassAccess } = require('../services/academic');
 function excel(work, sheet, filename) {
     return async (req, res) => {
         try {
             const rows = await work(req, readStore());
+            const xlsx = require('xlsx');
             const workbook = xlsx.utils.book_new();
             xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(rows), sheet);
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

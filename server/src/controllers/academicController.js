@@ -1,6 +1,6 @@
 const { endpoint, fail } = require('../services/store');
 const { integer, requireRow, checkClassAccess } = require('../services/academic');
-const { transcript } = require('../services/transcript');
+const { transcript, transcriptsForStudents } = require('../services/transcript');
 const { convertGrade } = require('../services/scheduleConflictService');
 
 async function visibleStudentIds(req, store) {
@@ -12,9 +12,10 @@ async function visibleStudentIds(req, store) {
 const getStudents = endpoint(async (req, store) => {
     const visible = await visibleStudentIds(req, store);
     const students = visible ? await store.related('students', 'id', [...visible]) : await store.list('students');
+    const reports = await transcriptsForStudents(store, students, req.query.semester_id ? integer(req.query.semester_id, 'Học kỳ') : null);
     const result = [];
-    for (const s of students) {
-        const report = await transcript(store, s.id, req.query.semester_id ? integer(req.query.semester_id, 'Học kỳ') : null);
+    for (const [index, s] of students.entries()) {
+        const report = reports[index];
         const gpa4 = Number(report.cumulative?.gpa4 || 0);
         const hasResitAvailable = report.data.some(d => d.next_action === 'RESIT_AVAILABLE' || d.next_action === 'RESIT_PENDING');
         const hasRetakeRequired = report.data.some(d => d.next_action === 'RETAKE_REQUIRED' || (d.result_status === 'FAILED' && !d.can_request_resit));
