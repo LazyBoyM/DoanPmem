@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth-context';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
+import DataLoadingPopup, { LoadingPopup } from './components/LoadingPopup';
 
 const Login = lazy(() => import('./pages/Login'));
 const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
@@ -28,16 +29,12 @@ const AppRoutes = () => {
     const { user, loading } = useAuth();
 
     if (loading) {
-        return <div className="d-flex justify-content-center align-items-center vh-100">
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Đang tải...</span>
-            </div>
-        </div>;
+        return <LoadingPopup label="Đang tải ứng dụng..." />;
     }
 
     return (
         <Router>
-            <Suspense fallback={<div className="d-flex justify-content-center p-5" role="status"><span className="spinner-border text-primary" aria-hidden="true" /><span className="visually-hidden">Đang tải trang...</span></div>}>
+            <Suspense fallback={<LoadingPopup label="Đang tải trang..." />}>
             <Routes>
                 
                 <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
@@ -97,6 +94,7 @@ function App() {
         <AuthProvider>
             <FeedbackProvider>
             <AppRoutes />
+            <DataLoadingPopup />
         </FeedbackProvider>
         </AuthProvider>
     );

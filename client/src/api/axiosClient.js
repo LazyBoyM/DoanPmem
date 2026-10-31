@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { beginLoading } from './loadingStore';
 
 const axiosClient = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -13,6 +14,7 @@ axiosClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        if (config.method === 'get') config.finishLoading = beginLoading();
         return config;
     },
     (error) => {
@@ -22,9 +24,11 @@ axiosClient.interceptors.request.use(
 
 axiosClient.interceptors.response.use(
     (response) => {
+        response.config.finishLoading?.();
         return response.data;
     },
     (error) => {
+        error.config?.finishLoading?.();
         if (error.response && error.response.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
