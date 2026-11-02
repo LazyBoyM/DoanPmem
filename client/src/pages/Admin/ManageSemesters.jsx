@@ -501,7 +501,7 @@ export default function ManageSemesters() {
             <Button variant="outline" size="md" onClick={() => setShowPeriodModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={submitting}>
+            <Button type="submit" variant="primary" size="md" loading={submitting}>
               Tạo đợt đăng ký
             </Button>
           </div>
@@ -578,7 +578,7 @@ export default function ManageSemesters() {
             <Button variant="outline" size="md" onClick={() => setShowSemesterModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={submitting}>
+            <Button type="submit" variant="primary" size="md" loading={submitting}>
               Tạo học kỳ
             </Button>
           </div>
@@ -659,7 +659,7 @@ export default function ManageSemesters() {
             <Button variant="outline" size="md" onClick={() => setShowProgramModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={submitting}>
+            <Button type="submit" variant="primary" size="md" loading={submitting}>
               Tạo chương trình
             </Button>
           </div>

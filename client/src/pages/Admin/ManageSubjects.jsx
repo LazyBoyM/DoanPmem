@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { useFeedback } from '../../context/feedback-context';
 import RegistrationStatusBadge from '../../components/RegistrationStatusBadge';
 import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 
 export default function ManageSubjects() {
+  const formId = useId();
   const { notify, confirm } = useFeedback();
   const [subjects, setSubjects] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -587,14 +588,15 @@ export default function ManageSubjects() {
               variant="primary"
               size="md"
               loading={submitting}
-              onClick={handleSubmit}
+              type="submit"
+              form={formId}
             >
               {isEditing ? 'Lưu thay đổi' : 'Tạo học phần'}
             </Button>
           </div>
         }
       >
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form id={formId} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
             <Input
               label="Mã học phần *"

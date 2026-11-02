@@ -1021,7 +1021,7 @@ export default function ManageClasses() {
             <Button variant="outline" size="md" onClick={() => setShowCreateModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={creating}>
+            <Button type="submit" variant="primary" size="md" loading={creating}>
               Xác nhận mở lớp
             </Button>
           </div>
@@ -1141,7 +1141,7 @@ export default function ManageClasses() {
             <Button variant="outline" size="md" onClick={() => setShowEditClassModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={savingClass}>
+            <Button type="submit" variant="primary" size="md" loading={savingClass}>
               Lưu thay đổi
             </Button>
           </div>
@@ -1297,7 +1297,7 @@ export default function ManageClasses() {
             <Button variant="outline" size="md" onClick={() => setShowEditScheduleModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={savingSchedule}>
+            <Button type="submit" variant="primary" size="md" loading={savingSchedule}>
               Lưu lịch học
             </Button>
           </div>
