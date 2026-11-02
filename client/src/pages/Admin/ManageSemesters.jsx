@@ -391,15 +391,7 @@ export default function ManageSemesters() {
       )}
 
       {curriculumProgram && (
-        <Modal
-          open={Boolean(curriculumProgram)}
-          onClose={() => setCurriculumProgram(null)}
-          title={`Khung chương trình đào tạo · ${curriculumProgram.program_name}`}
-          description={`Mã chương trình: ${curriculumProgram.program_code} · Tổng số ${curriculumProgram.total_credits} tín chỉ`}
-          size="xl"
-        >
-          <CurriculumEditor program={curriculumProgram} onClose={() => setCurriculumProgram(null)} />
-        </Modal>
+        <CurriculumEditor key={curriculumProgram.id} program={curriculumProgram} onClose={() => setCurriculumProgram(null)} onSaved={fetchAllData} />
       )}
 
       {planSemester && (
