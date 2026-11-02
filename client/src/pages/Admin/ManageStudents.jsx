@@ -10,6 +10,9 @@ export default function ManageStudents() {
   const [students, setStudents] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [adminClasses, setAdminClasses] = useState([]);
+  const [showClassModal, setShowClassModal] = useState(false);
+  const [className, setClassName] = useState('');
+  const [savingClass, setSavingClass] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
@@ -77,6 +80,27 @@ export default function ManageStudents() {
       password: '123456'
     });
     setShowModal(true);
+  };
+
+  const handleAddClass = async (e) => {
+    e.preventDefault();
+    if (savingClass) return;
+    setSavingClass(true);
+    try {
+      const res = await axiosClient.post('/admin/administrative-classes', { class_name: className });
+      if (res.success) {
+        setAdminClasses(prev => [...prev, { ...res.data, student_count: 0, students: [] }]
+          .sort((a, b) => a.class_name.localeCompare(b.class_name)));
+        setShowClassModal(false);
+        setClassName('');
+        setViewMode('classes');
+        notify('Đã thêm lớp hành chính.', 'success');
+      }
+    } catch (err) {
+      notify(err.response?.data?.message || 'Không thể thêm lớp hành chính.', 'danger');
+    } finally {
+      setSavingClass(false);
+    }
   };
 
   const handleOpenEdit = (st) => {
@@ -192,6 +216,9 @@ export default function ManageStudents() {
             onClick={handleExportExcel}
           >
             Xuất Excel
+          </Button>
+          <Button variant="outline" size="md" onClick={() => { setClassName(''); setShowClassModal(true); }}>
+            + Thêm lớp hành chính
           </Button>
           <Button
             variant="primary"
@@ -579,6 +606,17 @@ export default function ManageStudents() {
         </div>
       )}
 
+      <Modal open={showClassModal} onClose={() => { if (!savingClass) setShowClassModal(false); }} title="Thêm lớp hành chính" size="sm">
+        <form onSubmit={handleAddClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <label htmlFor="administrative-class-name">Tên lớp hành chính *</label>
+          <Input id="administrative-class-name" value={className} onChange={e => setClassName(e.target.value)} placeholder="Ví dụ: 75DCTT01" maxLength={100} required disabled={savingClass} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+            <Button variant="outline" onClick={() => setShowClassModal(false)} disabled={savingClass}>Hủy</Button>
+            <Button type="submit" loading={savingClass}>Thêm lớp</Button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal
         open={showModal}
         onClose={() => setShowModal(false)}
@@ -646,10 +684,8 @@ export default function ManageStudents() {
                 value={formData.class_name}
                 onChange={e => setFormData({ ...formData, class_name: e.target.value })}
                 options={[
-                  ...adminClasses.map(c => ({ value: c.class_name, label: c.class_name })),
-                  { value: '74DCTT25', label: '74DCTT25' },
-                  { value: '74DCTT24', label: '74DCTT24' },
-                  { value: '74DCTT26', label: '74DCTT26' }
+                  ...[...new Set([...adminClasses.map(c => c.class_name), formData.class_name].filter(Boolean))]
+                    .map(name => ({ value: name, label: name }))
                 ]}
               />
             </div>

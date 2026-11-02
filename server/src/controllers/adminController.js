@@ -320,10 +320,11 @@ const getClassEnrolledStudents = endpoint(async (req, store) => {
     }) };
 });
 const getAdministrativeClasses = endpoint(async (_req, store) => {
-    const [students, programs, semesters] = await Promise.all([
+    const [students, programs, semesters, savedClasses] = await Promise.all([
         store.list('students'),
         store.list('programs'),
-        store.list('semesters')
+        store.list('semesters'),
+        store.list('administrative_classes')
     ]);
     const programById = new Map(programs.map(p => [p.id, p]));
     const activeSemester = semesters.find(s => s.is_active);
@@ -339,6 +340,7 @@ const getAdministrativeClasses = endpoint(async (_req, store) => {
     }
 
     const classesMap = new Map();
+    for (const cls of savedClasses) classesMap.set(cls.class_name, []);
     for (const s of students) {
         const name = s.class_name ? s.class_name.trim() : 'Chưa phân lớp';
         if (!classesMap.has(name)) {
@@ -370,8 +372,8 @@ const getAdministrativeClasses = endpoint(async (_req, store) => {
             class_name,
             student_count: list.length,
             enrolled_count: enrolledCount,
-            program_name: list[0]?.program_name || 'Công nghệ Thông tin',
-            academic_year: list[0]?.academic_year || 'K74',
+            program_name: list[0]?.program_name || 'Chưa có sinh viên',
+            academic_year: list[0]?.academic_year || '',
             students: list
         };
     }).sort((a, b) => a.class_name.localeCompare(b.class_name));
@@ -532,7 +534,15 @@ const getAuditLogs = endpoint(async (_req, store) => {
     const logs = await store.list('audit_logs');
     return { data: logs.sort((a, b) => dateTime(b.created_at) - dateTime(a.created_at) || b.id - a.id) };
 });
+const createAdministrativeClass = endpoint(async (req, store) => {
+    const name = text(req.body.class_name, 'tên lớp hành chính').toUpperCase();
+    if (name.length > 100) fail('Tên lớp hành chính không được quá 100 ký tự.');
+    const [classes, students] = await Promise.all([store.list('administrative_classes'), store.list('students')]);
+    if ([...classes, ...students].some(row => row.class_name?.trim().toUpperCase() === name)) fail('Lớp hành chính đã tồn tại.', 409);
+    const data = await store.insert('administrative_classes', { class_name: name });
+    return { message: 'Đã thêm lớp hành chính.', data };
+}, true);
 module.exports = { getDashboardStats, getAuditLogs, getAllUsers, createUser, toggleUserStatus, resetUserPassword, getAllStudents, createStudent: createProfile(true), updateStudent: updateProfile(true), deleteStudent: deleteProfile(true),
     getAllLecturers, createLecturer: createProfile(false), updateLecturer: updateProfile(false), deleteLecturer: deleteProfile(false), getAllSubjects, createSubject, updateSubject, deleteSubject,
     getPrograms, createProgram, getSemesters, createSemester, setActiveSemester, getRegistrationPeriods, createRegistrationPeriod, toggleRegistrationPeriod, createCourseClass, updateClassSchedule, updateClassStatus, getClassEnrolledStudents, getAllDepartments,
-    getAdministrativeClasses, batchEnrollClass };
+    getAdministrativeClasses, createAdministrativeClass, batchEnrollClass };

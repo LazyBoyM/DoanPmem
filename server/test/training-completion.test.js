@@ -25,6 +25,27 @@ beforeEach(() => {
 });
 after(() => new Promise(resolve => server.close(resolve)));
 
+test('administrative classes persist without students and reject invalid or duplicate names', async () => {
+    const created = await call('/admin/administrative-classes', { class_name: '  75dctt01  ' });
+    assert.equal(created.status, 200);
+    assert.equal(created.body.data.class_name, '75DCTT01');
+    const listed = await call('/admin/administrative-classes');
+    const cls = listed.body.data.find(row => row.class_name === '75DCTT01');
+    assert.equal(cls.student_count, 0);
+    assert.deepEqual(cls.students, []);
+    assert.equal((await call('/admin/administrative-classes', { class_name: '75dctt01' })).status, 409);
+    assert.equal((await call('/admin/administrative-classes', { class_name: mockDb.students[0].class_name })).status, 409);
+    assert.equal((await call('/admin/administrative-classes', { class_name: ' ' })).status, 400);
+    assert.equal((await call('/admin/administrative-classes', { class_name: 'A'.repeat(101) })).status, 400);
+    for (const user of ['gv_thuan', '74dctt25001']) {
+        assert.equal((await call('/admin/administrative-classes', { class_name: 'DENIED' }, 'POST', user)).status, 403);
+    }
+    const student = mockDb.students[0];
+    assert.equal((await call(`/admin/students/${student.id}`, { class_name: '75DCTT01' }, 'PUT')).status, 200);
+    const assigned = (await call('/admin/administrative-classes')).body.data.find(row => row.class_name === '75DCTT01');
+    assert.equal(assigned.student_count, 1);
+});
+
 test('program update and delete protect student references without enforcing retired curriculum', async () => {
     mockDb.program_subjects.push({ id: 1, program_id: 1, subject_id: 1, recommended_semester: 8, is_required: 1 });
     assert.equal((await call('/admin/programs/1', { program_name: 'Tên mới' }, 'PUT')).status, 200);

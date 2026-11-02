@@ -9,6 +9,7 @@ let pool = null;
 let isConnected = false;
 
 const mockDb = {
+    administrative_classes: [],
     audit_logs: [
         { id: 1, user_id: 1, user_name: 'admin (Ban Đào Tạo)', action: 'UPDATE', target_table: 'grades', record_id: 'INT1004.01', detail: 'Khóa sổ điểm lớp học phần INT1004.01', created_at: '2026-10-22 08:30:00' },
         { id: 2, user_id: 2, user_name: 'ThS. Phạm Thị Thuận', action: 'UPDATE', target_table: 'grades', record_id: 'INT1001.01', detail: 'Nhập điểm chuyên cần và giữa kỳ lớp INT1001.01', created_at: '2026-10-22 09:15:00' },
