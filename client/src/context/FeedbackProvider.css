@@ -1,0 +1,49 @@
+.feedback-notice {
+    position: fixed;
+    inset: auto 24px 24px auto;
+    z-index: 1300;
+    width: max-content;
+    max-width: min(480px, calc(100vw - 32px));
+    margin: 0;
+    box-shadow: var(--shadow-md);
+}
+
+.feedback-notice,
+.dialog-feedback {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.feedback-notice > span,
+.dialog-feedback > span {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.feedback-notice > i,
+.feedback-notice .icon-button,
+.dialog-feedback .icon-button {
+    flex-shrink: 0;
+}
+
+.dialog-feedback {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    margin: 12px;
+}
+
+/* Native dialogs render their own notice in the browser's top layer. */
+body:has(.portal-dialog[open]) .feedback-notice {
+    display: none;
+}
+
+@media (max-width: 575px) {
+    .feedback-notice {
+        right: 16px;
+        bottom: 16px;
+    }
+}
