@@ -71,6 +71,7 @@ p{max-width:72ch}
 .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor}
 .icon-button{min-width:38px;min-height:38px;display:inline-grid;place-items:center;border:1px solid var(--color-border);border-radius:7px;background:var(--color-surface);color:var(--color-text-secondary);font-size:16px;cursor:pointer;transition:all 140ms ease}
 .icon-button:hover{background:var(--color-surface-hover);color:var(--color-gold);border-color:var(--color-border-strong)}
+.icon-button.sidebar-close,.icon-button.mobile-menu-toggle{display:none}
 
 .app-content-body{flex:1;width:100%;max-width:1680px;margin:0 auto;padding:32px 36px 48px}
 .app-content-body:focus{outline:none}
@@ -168,7 +169,7 @@ p{max-width:72ch}
   .app-sidebar{width:260px;transform:translateX(-100%);visibility:hidden;transition:transform 180ms ease-out,visibility 180ms}
   .app-sidebar.is-open{transform:translateX(0);visibility:visible}
   .app-main{margin-left:0}
-  .mobile-menu-toggle{display:inline-grid}
+  .icon-button.sidebar-close,.icon-button.mobile-menu-toggle{display:inline-grid}
   .login-page{grid-template-columns:1fr}
 }
 
