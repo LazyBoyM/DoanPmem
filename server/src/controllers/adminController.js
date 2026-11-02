@@ -167,12 +167,6 @@ const updateSubject = endpoint(async (req, store) => {
     const current = await requireRow(store, 'subjects', req.params.id, 'Môn học');
     const fields = await subjectFields(store, { ...current, ...req.body });
     if (fields.credits !== Number(current.credits)) {
-        const catalog = await store.list('subjects');
-        for (const link of await store.list('program_subjects', { subject_id: current.id })) {
-            const program = await requireRow(store, 'programs', link.program_id);
-            const total = (await store.list('program_subjects', { program_id: program.id })).reduce((sum, row) => sum + (row.subject_id === current.id ? fields.credits : Number(catalog.find(s => s.id === row.subject_id)?.credits || 0)), 0);
-            if (total > program.total_credits) fail('Tín chỉ mới vượt tổng tín chỉ chương trình.');
-        }
         for (const cls of await store.list('course_classes', { subject_id: current.id })) {
             for (const enrollment of await store.list('enrollments', { course_class_id: cls.id, status: 'ENROLLED' })) {
                 const plan = await store.one('registration_submissions', { student_id: enrollment.student_id, semester_id: cls.semester_id });
@@ -194,7 +188,7 @@ const deleteSubject = endpoint(async (req, store) => {
     if ((await store.list('course_classes', { subject_id: subject.id })).length) fail('Môn học đã được sử dụng trong lớp học phần.', 409);
     await store.remove('prerequisites', { subject_id: subject.id });
     await store.remove('prerequisites', { prerequisite_subject_id: subject.id });
-    if ((await store.list('program_subjects', { subject_id: subject.id })).length) fail('Môn học đang thuộc chương trình đào tạo.', 409);
+    await store.remove('program_subjects', { subject_id: subject.id });
     await store.remove('subjects', { id: subject.id });
     return ok('Đã xóa môn học.');
 }, true);

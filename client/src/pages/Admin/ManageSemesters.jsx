@@ -5,7 +5,6 @@ import { useFeedback } from '../../context/feedback-context';
 import { Button, Input, Select, Badge, Table, Modal, Tabs, Skeleton, EmptyState } from '../../components/ui';
 import RegistrationPlans from '../../components/RegistrationPlans';
 import { getPeriodStatus } from '../../utils/registrationStatus';
-import { CurriculumEditor } from '../../components/TrainingEditor';
 
 export default function ManageSemesters() {
   const { notify } = useFeedback();
@@ -18,7 +17,6 @@ export default function ManageSemesters() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [curriculumProgram, setCurriculumProgram] = useState(null);
   const [planSemester, setPlanSemester] = useState(null);
 
   const [showPeriodModal, setShowPeriodModal] = useState(false);
@@ -342,10 +340,9 @@ export default function ManageSemesters() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th width="20%">Mã ngành</Table.Th>
-                <Table.Th width="35%">Tên chương trình đào tạo</Table.Th>
-                <Table.Th width="15%">Tổng tín chỉ</Table.Th>
+                <Table.Th width="45%">Tên chương trình đào tạo</Table.Th>
+                <Table.Th width="20%">Tổng tín chỉ</Table.Th>
                 <Table.Th width="15%">Thời gian</Table.Th>
-                <Table.Th width="15%" align="right">Thao tác</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -374,24 +371,11 @@ export default function ManageSemesters() {
                   <Table.Td>
                     <Badge variant="neutral">{prog.duration_years || 4.0} năm</Badge>
                   </Table.Td>
-                  <Table.Td align="right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurriculumProgram(prog)}
-                    >
-                      Khung CTĐT
-                    </Button>
-                  </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
           </Table>
         </div>
-      )}
-
-      {curriculumProgram && (
-        <CurriculumEditor key={curriculumProgram.id} program={curriculumProgram} onClose={() => setCurriculumProgram(null)} onSaved={fetchAllData} />
       )}
 
       {planSemester && (

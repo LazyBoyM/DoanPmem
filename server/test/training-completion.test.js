@@ -25,21 +25,37 @@ beforeEach(() => {
 });
 after(() => new Promise(resolve => server.close(resolve)));
 
-test('program update and delete protect student references and validate curriculum atomically', async () => {
+test('program update and delete protect student references without enforcing retired curriculum', async () => {
+    mockDb.program_subjects.push({ id: 1, program_id: 1, subject_id: 1, recommended_semester: 8, is_required: 1 });
     assert.equal((await call('/admin/programs/1', { program_name: 'Tên mới' }, 'PUT')).status, 200);
     assert.equal((await call('/admin/programs/1', undefined, 'DELETE')).status, 409);
-    assert.equal((await call('/admin/programs/1/curriculum', { subjects: [{ subject_id: 1, recommended_semester: 1, is_required: 1 }, { subject_id: 2, recommended_semester: 2, is_required: 0 }] }, 'PUT')).status, 200);
-    const rows = (await call('/admin/programs/1/curriculum')).body.data;
-    assert.equal(rows.length, 2); assert.ok(rows[0].subject_name);
-    for (const subjects of [
-        [{ subject_id: 999, recommended_semester: 1, is_required: 1 }],
-        [{ subject_id: 1, recommended_semester: 9, is_required: 1 }],
-        [{ subject_id: 1, recommended_semester: 1, is_required: 1 }, { subject_id: 1, recommended_semester: 2, is_required: 1 }]
-    ]) assert.ok((await call('/admin/programs/1/curriculum', { subjects }, 'PUT')).status >= 400);
-    assert.deepEqual((await call('/admin/programs/1/curriculum')).body.data, rows);
-    assert.equal((await call('/admin/programs/1', { total_credits: 1 }, 'PUT')).status, 400);
+    assert.equal((await call('/admin/programs/1', { total_credits: 0 }, 'PUT')).status, 400);
+    assert.equal((await call('/admin/programs/1', { total_credits: 1, duration_years: 1 }, 'PUT')).status, 200);
     const created = await call('/admin/programs', { program_code: 'NEW', program_name: 'New', department_id: 1 });
+    mockDb.program_subjects.push({ id: 2, program_id: created.body.data.id, subject_id: 1, recommended_semester: 1, is_required: 1 });
     assert.equal((await call(`/admin/programs/${created.body.data.id}`, undefined, 'DELETE')).status, 200);
+    assert.ok(!mockDb.program_subjects.some(row => row.program_id === created.body.data.id));
+});
+
+test('retired curriculum endpoints return 404 and preserve legacy data', async () => {
+    const legacy = [{ id: 1, program_id: 1, subject_id: 1, recommended_semester: 1, is_required: 1 }];
+    mockDb.program_subjects = structuredClone(legacy);
+    for (const user of ['admin', 'gv_thuan', '74dctt25001']) {
+        assert.equal((await call('/admin/programs/1/curriculum', undefined, 'GET', user)).status, 404);
+        assert.equal((await call('/admin/programs/1/curriculum', { subjects: [] }, 'PUT', user)).status, 404);
+    }
+    assert.deepEqual(mockDb.program_subjects, legacy);
+});
+
+test('legacy curriculum links do not block subject changes; deleting an unused subject cleans its links', async () => {
+    mockDb.programs[0].total_credits = 1;
+    mockDb.program_subjects.push({ id: 1, program_id: 1, subject_id: 4, recommended_semester: 1, is_required: 1 });
+    assert.equal((await call('/admin/subjects/4', { credits: 5 }, 'PUT')).status, 200);
+    mockDb.subjects.push({ ...mockDb.subjects[0], id: 99, subject_code: 'UNUSED' });
+    mockDb.program_subjects.push({ id: 2, program_id: 1, subject_id: 99, recommended_semester: 1, is_required: 1 });
+    assert.equal((await call('/admin/subjects/99', undefined, 'DELETE')).status, 200);
+    assert.ok(!mockDb.program_subjects.some(row => row.subject_id === 99));
+    assert.equal((await call('/admin/subjects/4', undefined, 'DELETE')).status, 409);
 });
 test('subject edit saves multiple prerequisites and rejects cycles with full rollback', async () => {
     assert.equal((await call('/admin/subjects/4', { prerequisite_ids: [1, 3] }, 'PUT')).status, 200);
@@ -99,7 +115,7 @@ test('catalog credit changes and class cancellation keep submitted plans consist
 test('new endpoints enforce staff roles and registration ownership comes from token', async () => {
     for (const user of ['gv_thuan', '74dctt25001']) {
         assert.equal((await call('/admin/programs/1', { program_name: 'Hack' }, 'PUT', user)).status, 403);
-        assert.equal((await call('/admin/programs/1/curriculum', undefined, 'GET', user)).status, 403);
+        assert.equal((await call('/admin/programs/1', undefined, 'DELETE', user)).status, 403);
         assert.equal((await call('/admin/admin-accounts', { username: 'hack', email: 'hack@example.com', password: 'password123' }, 'POST', user)).status, 403);
     }
     assert.equal((await call('/registration/submit', { semester_id: 1 })).status, 403);

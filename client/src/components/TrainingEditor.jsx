@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import AccessibleDialog from './AccessibleDialog';
 import axiosClient from '../api/axiosClient';
 import { useFeedback } from '../context/feedback-context';
-import LoadingState from './LoadingState';
 
 const definitions = {
     programs: [['program_code', 'Mã chương trình'], ['program_name', 'Tên chương trình'], ['department_id', 'Khoa', 'departments'], ['total_credits', 'Tổng tín chỉ', 'number', 1, 500], ['duration_years', 'Số năm đào tạo', 'number', 0.5, 10]],
@@ -34,45 +33,4 @@ export default function TrainingEditor({ resource, record, departments = [], lec
         </label></div>)}</div></fieldset>
         {resource === 'classes' && <p className="small text-muted mt-3">Sĩ số không được thấp hơn số người đã đăng ký hoặc vượt sức chứa phòng. Giảng viên được kiểm tra trùng lịch.</p>}
     </div><footer className="modal-footer"><button className="btn btn-outline-secondary" type="button" disabled={saving} onClick={onClose}>Hủy</button><button className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button></footer></form></AccessibleDialog>;
-}
-
-export function CurriculumEditor({ program, onClose, onSaved }) {
-    const [subjects, setSubjects] = useState([]);
-    const [rows, setRows] = useState(null);
-    const [version, setVersion] = useState(0);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-    const { notify } = useFeedback();
-    useEffect(() => {
-        const controller = new AbortController();
-        Promise.all([
-            axiosClient.get('/admin/subjects', { signal: controller.signal }),
-            axiosClient.get(`/admin/programs/${program.id}/curriculum`, { signal: controller.signal })
-        ]).then(([catalog, curriculum]) => {
-            if (controller.signal.aborted) return;
-            if (!Array.isArray(catalog.data) || !Array.isArray(curriculum.data)) throw new Error('Dữ liệu khung chương trình không hợp lệ.');
-            setSubjects(catalog.data);
-            setRows(curriculum.data.map(r => ({ subject_id: r.subject_id, recommended_semester: r.recommended_semester, is_required: Number(r.is_required) })));
-        }).catch(err => {
-            if (!controller.signal.aborted) setError(err.response?.data?.message || err.message || 'Không tải được khung chương trình.');
-        });
-        return () => controller.abort();
-    }, [program.id, version]);
-    const change = (index, key, value) => setRows(old => old.map((r, i) => i === index ? { ...r, [key]: Number(value) } : r));
-    const total = (rows || []).reduce((sum, r) => sum + Number(subjects.find(s => s.id === Number(r.subject_id))?.credits || 0), 0);
-    async function save(e) {
-        e.preventDefault();
-        if (!rows || saving) return;
-        setSaving(true); setError('');
-        try {
-            const result = await axiosClient.put(`/admin/programs/${program.id}/curriculum`, { subjects: rows });
-            notify(result.message, 'success'); await onSaved?.(); onClose();
-        } catch (err) { setError(err.response?.data?.message || 'Không lưu được chương trình môn học.'); }
-        finally { setSaving(false); }
-    }
-    return <AccessibleDialog className="record-editor" label="Các môn trong chương trình" onClose={() => { if (!saving) onClose(); }}><form onSubmit={save} className="modal-content border-0"><header className="modal-header"><div><h2 className="modal-title h5">Môn học & phân bổ học kỳ</h2><p className="small mb-0">{program.program_name}</p></div><button type="button" className="btn-close" aria-label="Đóng" disabled={saving} onClick={onClose} /></header><div className="modal-body"><p>{total} / {program.total_credits} tín chỉ đã phân bổ. Chọn môn bắt buộc hoặc tự chọn và học kỳ gợi ý.</p>{error && <div className="alert alert-danger" role="alert">{error}{!rows && <button type="button" className="btn btn-sm btn-outline-danger ms-2" onClick={() => { setError(''); setVersion(v => v + 1); }}>Thử lại</button>}</div>}{!rows && !error && <LoadingState label="Đang tải khung chương trình" />}<fieldset disabled={saving || !rows}>
-        {rows?.map((row, index) => <fieldset key={index} className="schedule-editor-session"><legend className="h6">Môn {index + 1}</legend><label className="form-label d-block">Môn học<select className="form-select" required value={row.subject_id} onChange={e => change(index, 'subject_id', e.target.value)}><option value="">Chọn môn học</option>{subjects.filter(s => s.id === Number(row.subject_id) || !rows.some(r => Number(r.subject_id) === s.id)).map(s => <option key={s.id} value={s.id}>{s.subject_code} · {s.subject_name} · {s.credits} TC</option>)}</select></label><div className="row g-3"><div className="col-6"><label className="form-label d-block">Học kỳ gợi ý<input className="form-control" type="number" min="1" max={Math.ceil(program.duration_years * 2)} required value={row.recommended_semester} onChange={e => change(index, 'recommended_semester', e.target.value)} /></label></div><div className="col-6"><label className="form-label d-block">Loại môn<select className="form-select" value={row.is_required} onChange={e => change(index, 'is_required', e.target.value)}><option value="1">Bắt buộc</option><option value="0">Tự chọn</option></select></label></div></div><button className="btn btn-sm btn-outline-danger" type="button" onClick={() => setRows(old => old.filter((_, i) => i !== index))}>Bỏ môn {index + 1}</button></fieldset>)}
-        {rows?.length === 0 && <p className="text-muted">Chưa có môn học trong chương trình.</p>}
-        <button className="btn btn-outline-primary" type="button" disabled={!rows || rows.length >= subjects.length} onClick={() => setRows(old => [...old, { subject_id: '', recommended_semester: 1, is_required: 1 }])}>Thêm môn học</button>
-    </fieldset></div><footer className="modal-footer"><button className="btn btn-outline-secondary" type="button" disabled={saving} onClick={onClose}>Hủy</button><button type="submit" className="btn btn-primary" disabled={saving || !rows}>{saving ? 'Đang lưu…' : 'Lưu chương trình môn học'}</button></footer></form></AccessibleDialog>;
 }

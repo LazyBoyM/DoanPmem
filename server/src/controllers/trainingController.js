@@ -13,10 +13,6 @@ const updateProgram = endpoint(async (req, store) => {
     const duration = Number(b.duration_years);
     if (!Number.isFinite(duration) || duration <= 0 || duration > 10) fail('Thời gian đào tạo không hợp lệ.');
     const total_credits = integer(b.total_credits, 'Tổng tín chỉ', 1, 500);
-    const subjects = await store.list('program_subjects', { program_id: old.id });
-    const catalog = await store.list('subjects');
-    if (subjects.reduce((n, r) => n + Number(catalog.find(s => s.id === r.subject_id)?.credits || 0), 0) > total_credits) fail('Tổng tín chỉ không được nhỏ hơn các môn trong chương trình.');
-    if (subjects.some(s => s.recommended_semester > Math.ceil(duration * 2))) fail('Thời gian đào tạo ngắn hơn phân bổ môn học.');
     await store.update('programs', old.id, { program_code, program_name: text(b.program_name, 'tên chương trình'), department_id: (await requireRow(store, 'departments', b.department_id)).id, total_credits, duration_years: duration });
     return { message: 'Đã cập nhật chương trình.' };
 }, true);
@@ -26,28 +22,6 @@ const deleteProgram = endpoint(async (req, store) => {
     await store.remove('program_subjects', { program_id: program.id });
     await store.remove('programs', { id: program.id });
     return { message: 'Đã xóa chương trình.' };
-}, true);
-const getCurriculum = endpoint(async (req, store) => {
-    const program = await requireRow(store, 'programs', req.params.id);
-    const subjects = await store.list('subjects');
-    return { data: (await store.list('program_subjects', { program_id: program.id })).map(r => ({ ...r, ...Object.fromEntries(['subject_code', 'subject_name', 'credits'].map(k => [k, subjects.find(s => s.id === r.subject_id)?.[k]])) })) };
-});
-const saveCurriculum = endpoint(async (req, store) => {
-    const program = await requireRow(store, 'programs', req.params.id);
-    if (!Array.isArray(req.body.subjects)) fail('Danh sách môn học không hợp lệ.');
-    const seen = new Set(); let credits = 0;
-    const rows = [];
-    for (const row of req.body.subjects) {
-        const subject = await requireRow(store, 'subjects', row.subject_id, 'Môn học');
-        if (seen.has(subject.id)) fail('Môn học bị lặp trong chương trình.');
-        seen.add(subject.id); credits += Number(subject.credits);
-        if (![0, 1].includes(row.is_required)) fail('Loại môn học không hợp lệ.');
-        rows.push({ program_id: program.id, subject_id: subject.id, recommended_semester: integer(row.recommended_semester, 'Học kỳ gợi ý', 1, Math.ceil(program.duration_years * 2)), is_required: row.is_required });
-    }
-    if (credits > program.total_credits) fail('Tín chỉ các môn vượt tổng tín chỉ chương trình.');
-    await store.remove('program_subjects', { program_id: program.id });
-    for (const row of rows) await store.insert('program_subjects', row);
-    return { message: 'Đã lưu các môn và phân bổ học kỳ.' };
 }, true);
 const updateSemester = endpoint(async (req, store) => {
     const old = await requireRow(store, 'semesters', req.params.id);
@@ -139,4 +113,4 @@ const updateUserRole = endpoint(async (req, store) => {
     return { message: 'Đã cập nhật vai trò. Phiên đăng nhập cũ sẽ hết hiệu lực.' };
 }, true);
 const getRegistrationPlans = endpoint(async (req, store) => require('../services/registrationPlans').registrationPlans(store, req.params.id));
-module.exports = { getRegistrationPlans, updateUserRole, createAdmin, updateProgram, deleteProgram, getCurriculum, saveCurriculum, updateSemester, deleteSemester, updatePeriod, deletePeriod, updateClass, getSubmission, submitRegistration };
+module.exports = { getRegistrationPlans, updateUserRole, createAdmin, updateProgram, deleteProgram, updateSemester, deleteSemester, updatePeriod, deletePeriod, updateClass, getSubmission, submitRegistration };
