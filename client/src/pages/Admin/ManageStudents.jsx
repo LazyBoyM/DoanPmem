@@ -728,7 +728,7 @@ export default function ManageStudents() {
             <Button variant="outline" size="md" onClick={() => setShowModal(false)}>
               Hủy
             </Button>
-            <Button variant="primary" size="md" loading={submitting}>
+            <Button type="submit" variant="primary" size="md" loading={submitting}>
               {editingId ? 'Lưu thay đổi' : 'Thêm sinh viên'}
             </Button>
           </div>
