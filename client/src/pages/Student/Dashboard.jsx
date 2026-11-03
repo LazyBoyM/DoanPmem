@@ -97,8 +97,12 @@ export default function StudentDashboard() {
     setBusy(true);
     setNotice(null);
     try {
-      await axiosClient.post('/registration/enroll', { course_class_id: classItem.id });
-      setNotice({ type: 'success', text: `Đã thêm ${classItem.subject_name} (${classItem.class_code}) vào kế hoạch học tập.` });
+      let res = await axiosClient.post('/registration/enroll', { course_class_id: classItem.id });
+      if (res.requires_confirmation) {
+        if (!await confirm(res.message)) return;
+        res = await axiosClient.post('/registration/enroll', { course_class_id: classItem.id, confirm_improvement: true });
+      }
+      setNotice({ type: 'success', text: res.is_improvement ? `${classItem.subject_name}: ${res.message}` : `Đã thêm ${classItem.subject_name} (${classItem.class_code}) vào kế hoạch học tập.` });
       await fetchData();
     } catch (err) {
       setNotice({ type: 'danger', text: err.response?.data?.message || 'Không thể đăng ký lớp học phần này.' });

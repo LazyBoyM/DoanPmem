@@ -1,7 +1,7 @@
 const { endpoint, fail } = require('../services/store');
 const { requireRow, classesWithDetails, checkClassAccess, integer } = require('../services/academic');
 const { convertGrade } = require('../services/scheduleConflictService');
-const { recordAudit, gradeValues } = require('../services/audit');
+const { recordAudit, gradeValues, gradeContext } = require('../services/audit');
 const emptyGrade = { attendance_score: null, midterm_score: null, final_score: null, total_score_10: null, total_score_4: null, letter_grade: null, is_locked: 0 };
 async function visibleClasses(req, store) {
     const filter = req.user.role === 'ADMIN' ? {} : { lecturer_id: req.user.lecturer_id };
@@ -53,6 +53,7 @@ const updateGrades = endpoint(async (req, store) => {
     else gradeId = (await store.insert('grades', data)).id;
     await recordAudit(store, req.user, existing ? 'UPDATE' : 'CREATE', 'grades', gradeId, {
         operation: 'Lưu điểm', class_code: cls.class_code, enrollment_id: enrollment.id,
+        ...await gradeContext(store, enrollment, cls),
         before: gradeValues(existing), after: gradeValues(data)
     });
     return { data, message: 'Đã lưu điểm.' };

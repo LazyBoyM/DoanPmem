@@ -43,12 +43,17 @@ const registerClass = endpoint(async (req, store) => {
     const schedules = await store.list('class_schedules', { course_class_id: cls.id });
     const conflict = checkScheduleConflicts(schedules, current);
     if (conflict.hasConflict) fail(conflict.detail);
+    const passed = all.filter(c => c.subject_id === cls.subject_id && c.grade?.total_score_10 != null && Number(c.grade.total_score_10) >= 4);
+    const bestPassedScore = passed.length ? Math.max(...passed.map(c => Number(c.grade.total_score_10))) : null;
+    if (passed.length && req.body.confirm_improvement !== true) {
+        return { requires_confirmation: true, message: `Bạn đã đạt môn ${subject.subject_name} với ${bestPassedScore} điểm. Đăng ký học cải thiện? Kết quả tích lũy giữ điểm cao nhất và tín chỉ đạt chỉ tính một lần.` };
+    }
     const existing = await store.one('enrollments', { student_id: student.id, course_class_id: cls.id });
     if (existing) await store.update('enrollments', existing.id, { status: 'ENROLLED', enrollment_time: new Date() });
     else await store.insert('enrollments', { student_id: student.id, course_class_id: cls.id, status: 'ENROLLED', enrollment_time: new Date() });
     await store.update('course_classes', cls.id, { current_students: cls.current_students + 1 });
     await store.remove('registration_submissions', { student_id: student.id, semester_id: cls.semester_id });
-    return { message: 'Đăng ký học phần thành công.' };
+    return { message: passed.length ? 'Đã đăng ký học cải thiện. Kết quả tích lũy giữ điểm cao nhất mỗi môn.' : 'Đăng ký học phần thành công.', is_improvement: passed.length > 0 };
 }, true);
 const cancelEnrollment = endpoint(async (req, store) => {
     await requireRow(store, 'students', req.user.student_id, 'Sinh viên');

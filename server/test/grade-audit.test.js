@@ -28,6 +28,9 @@ test('admin and lecturer grade saves, new grades and lock changes appear in audi
             assert.equal(log.record_id, String(before.id));
             assert.equal(detail.before.final_score, before.final_score);
             assert.equal(detail.after.final_score, 6);
+            assert.equal(detail.student_code, db.mockDb.students.find(s => s.id === 1).student_code);
+            assert.equal(detail.student_name, db.mockDb.students.find(s => s.id === 1).full_name);
+            assert.equal(detail.subject_name, db.mockDb.subjects.find(s => s.id === db.mockDb.course_classes[0].subject_id).subject_name);
             const history = await invoke(admin.getAuditLogs, {});
             assert.ok(history.data.data.some(row => row.id === log.id));
         }

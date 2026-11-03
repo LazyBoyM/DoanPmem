@@ -9,10 +9,14 @@ function describeAudit(raw, full = false) {
   try {
     const detail = JSON.parse(raw);
     if (!detail.operation) return raw;
-    const summary = `${detail.operation} · Lớp ${detail.class_code}${detail.enrollment_id ? ` · Đăng ký #${detail.enrollment_id}` : ''}`;
+    const identity = detail.student_name || detail.student_code
+      ? `${detail.student_name || 'Sinh viên'} (${detail.student_code || detail.student_id})`
+      : detail.enrollment_id ? `Đăng ký #${detail.enrollment_id} · Log cũ chưa lưu tên sinh viên` : 'Toàn bộ bảng điểm';
+    const summary = [detail.operation, identity, detail.subject_name, `Lớp ${detail.class_code}`, detail.semester_name].filter(Boolean).join(' · ');
     if (!full) return summary;
     const labels = { attendance_score: 'Chuyên cần', midterm_score: 'Giữa kỳ', final_score: 'Cuối kỳ', total_score_10: 'Tổng kết hệ 10', total_score_4: 'Tổng kết hệ 4', letter_grade: 'Điểm chữ', grades_locked: 'Khóa điểm (0: mở, 1: khóa)' };
-    const changes = Object.entries(detail.after || {}).map(([key, value]) => `${labels[key] || key}: ${detail.before?.[key] ?? 'Chưa có'} → ${value ?? 'Chưa có'}`);
+    const changes = Object.entries(detail.after || {}).filter(([key, value]) => String(detail.before?.[key] ?? '') !== String(value ?? '')).map(([key, value]) => `${labels[key] || key}: ${detail.before?.[key] ?? 'Chưa có'} → ${value ?? 'Chưa có'}`);
+    if (!changes.length) changes.push('Không thay đổi giá trị điểm.');
     if (detail.resit_score != null) changes.push(`Điểm thi lại: ${detail.resit_score}`);
     return [summary, ...changes].join('\n');
   } catch { return raw; }

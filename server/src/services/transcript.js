@@ -61,6 +61,8 @@ function buildTranscript(student, program, all, semesters, attempts, semesterId)
             const failed = complete && Number(g.total_score_10) < 4;
             const hasLaterAttempt = i < rows.length - 1;
             e.attempt_number = i + 1;
+            e.is_improvement = rows.slice(0, i).some(row => row.grade?.total_score_10 != null && Number(row.grade.total_score_10) >= 4);
+            e.best_score_10 = Math.max(...rows.filter(row => row.grade?.total_score_10 != null).map(row => Number(row.grade.total_score_10)), 0);
             e.semester_name = semesterById.get(e.semester_id)?.semester_name || '';
             e.resit = resit;
             e.can_request_resit = Boolean(failed && !resit && !passed && !hasLaterAttempt);
